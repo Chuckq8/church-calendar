@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';
 import { storageGet, storageSet } from './storage';
 import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, DEFAULT_GROUPS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
-import { todayStr, fisherYates } from './utils';
+import { todayStr } from './utils';
 import { Toast, Modal, Field, inputStyle, Btn } from './components/UI';
 import CalendarView from './components/CalendarView';
 import ParticipantsView from './components/ParticipantsView';
@@ -57,32 +57,28 @@ function LoginModal({ onLogin, onClose }) {
   );
 }
 
-// ── Shuffle Confirm Modal ─────────────────────────────────────────────────────
-function ShuffleConfirmModal({ groups, participants, onConfirm, onClose }) {
-  const activeGroups = groups.filter(g => (g.memberIds || []).length > 0);
-  const totalMembers = activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0);
+function ShuffleConfirmModal({ groups, onConfirm, onClose }) {
   const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
   const perGroup = groups.length > 0 ? Math.ceil(allMemberIds.length / groups.length) : 0;
 
   return (
-    <Modal title="🔀 Reshuffle Groups" onClose={onClose}>
+    <Modal title="Reshuffle Groups" onClose={onClose}>
       <div style={{ background:'#fffbeb', border:'1.5px solid #fde68a', borderRadius:10, padding:'12px 14px', marginBottom:18 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:4 }}>⚠️ This will reassign members across groups</div>
+        <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:4 }}>This will reassign members across groups</div>
         <div style={{ fontSize:13, color:'#78350f' }}>
-          All members from all groups will be pooled together and randomly redistributed evenly. Events are not affected.
+          All members will be pooled and randomly redistributed evenly. Events are not affected.
         </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
-        {[
-          { label:'Groups', value: groups.length },
-          { label:'Members to Shuffle', value: totalMembers },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
-            <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{value}</div>
-            <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>{label}</div>
-          </div>
-        ))}
+        <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
+          <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{groups.length}</div>
+          <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>Groups</div>
+        </div>
+        <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
+          <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{allMemberIds.length}</div>
+          <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>Members to Shuffle</div>
+        </div>
       </div>
 
       {groups.length > 0 && (
@@ -103,7 +99,7 @@ function ShuffleConfirmModal({ groups, participants, onConfirm, onClose }) {
       <div style={{ display:'flex', gap:8 }}>
         <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
         <Btn variant="primary" onClick={onConfirm} style={{ flex:1, justifyContent:'center' }}>
-          🔀 Reshuffle Now
+          Reshuffle Now
         </Btn>
       </div>
     </Modal>
@@ -122,7 +118,9 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const showToast = useCallback((message, type = 'info') => setToast({ message, type }), []);
+  const showToast = useCallback((message, type) => {
+    setToast({ message, type: type || 'info' });
+  }, []);
 
   useEffect(() => {
     const savedEvents       = storageGet('church-events');
@@ -161,38 +159,43 @@ export default function App() {
   useEffect(() => { if (loaded) storageSet('church-groups', groups); }, [groups, loaded]);
   useEffect(() => { if (loaded) storageSet('church-shuffle-history', shuffleHistory); }, [shuffleHistory, loaded]);
 
-  const addEvent    = useCallback(ev => setEvents(es => [...es, ev]), []);
-  const editEvent   = useCallback(ev => setEvents(es => es.map(e => e.id === ev.id ? ev : e)), []);
-  const deleteEvent = useCallback(id => setEvents(es => es.filter(e => e.id !== id)), []);
+  const addEvent    = useCallback(function(ev) { setEvents(function(es) { return [...es, ev]; }); }, []);
+  const editEvent   = useCallback(function(ev) { setEvents(function(es) { return es.map(function(e) { return e.id === ev.id ? ev : e; }); }); }, []);
+  const deleteEvent = useCallback(function(id) { setEvents(function(es) { return es.filter(function(e) { return e.id !== id; }); }); }, []);
 
-  const addParticipant    = useCallback(p  => setParticipants(ps => [...ps, p]), []);
-  const editParticipant   = useCallback(p  => setParticipants(ps => ps.map(x => x.id === p.id ? p : x)), []);
-  const deleteParticipant = useCallback(id => {
-    setParticipants(ps => ps.filter(p => p.id !== id));
-    setEvents(es => es.map(e => ({ ...e, participants: (e.participants || []).filter(pid => pid !== id) })));
-    setGroups(gs => gs.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(mid => mid !== id) })));
+  const addParticipant    = useCallback(function(p) { setParticipants(function(ps) { return [...ps, p]; }); }, []);
+  const editParticipant   = useCallback(function(p) { setParticipants(function(ps) { return ps.map(function(x) { return x.id === p.id ? p : x; }); }); }, []);
+  const deleteParticipant = useCallback(function(id) {
+    setParticipants(function(ps) { return ps.filter(function(p) { return p.id !== id; }); });
+    setEvents(function(es) { return es.map(function(e) { return { ...e, participants: (e.participants || []).filter(function(pid) { return pid !== id; }) }; }); });
+    setGroups(function(gs) { return gs.map(function(g) { return { ...g, memberIds: (g.memberIds || []).filter(function(mid) { return mid !== id; }) }; }); });
   }, []);
 
-  const addGroup    = useCallback(g  => setGroups(gs => [...gs, g]), []);
-  const editGroup   = useCallback(g  => setGroups(gs => gs.map(x => x.id === g.id ? g : x)), []);
-  const deleteGroup = useCallback(id => {
-    setGroups(gs => gs.filter(g => g.id !== id));
-    setEvents(es => es.map(e => ({ ...e, groupIds: (e.groupIds || []).filter(gid => gid !== id) })));
+  const addGroup    = useCallback(function(g) { setGroups(function(gs) { return [...gs, g]; }); }, []);
+  const editGroup   = useCallback(function(g) { setGroups(function(gs) { return gs.map(function(x) { return x.id === g.id ? g : x; }); }); }, []);
+  const deleteGroup = useCallback(function(id) {
+    setGroups(function(gs) { return gs.filter(function(g) { return g.id !== id; }); });
+    setEvents(function(es) { return es.map(function(e) { return { ...e, groupIds: (e.groupIds || []).filter(function(gid) { return gid !== id; }) }; }); });
   }, []);
 
-  // ── Shuffle ─────────────────────────────────────────────────────────────────
-  const doShuffle = useCallback(() => {
+  const doShuffle = useCallback(function() {
     setShowShuffleConfirm(true);
   }, []);
 
-const confirmShuffle = useCallback(() => {
+  const confirmShuffle = useCallback(function() {
     if (groups.length === 0) {
       showToast('No groups to shuffle', 'error');
       setShowShuffleConfirm(false);
       return;
     }
 
-    const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
+    var allMemberIds = [];
+    var seen = {};
+    groups.forEach(function(g) {
+      (g.memberIds || []).forEach(function(id) {
+        if (!seen[id]) { seen[id] = true; allMemberIds.push(id); }
+      });
+    });
 
     if (allMemberIds.length === 0) {
       showToast('No members in any group to shuffle', 'error');
@@ -200,85 +203,52 @@ const confirmShuffle = useCallback(() => {
       return;
     }
 
-    const pool = [...allMemberIds].sort(() => Math.random() - 0.5);
-    const perGroup = Math.ceil(pool.length / groups.length);
+    var pool = allMemberIds.slice().sort(function() { return Math.random() - 0.5; });
+    var perGroup = Math.ceil(pool.length / groups.length);
 
-    const updatedGroups = groups.map((g, i) => ({
-      ...g,
-      memberIds: pool.slice(i * perGroup, (i + 1) * perGroup),
-    }));
+    var updatedGroups = groups.map(function(g, i) {
+      return { ...g, memberIds: pool.slice(i * perGroup, (i + 1) * perGroup) };
+    });
 
     setGroups(updatedGroups);
 
-    setShuffleHistory(h => [...h, {
-      date: new Date().toISOString(),
-      groups: groups.length,
-      participants: allMemberIds.length,
-    }]);
-
-    setShowShuffleConfirm(false);
-    showToast('Members reshuffled across groups!', 'success');
-  }, [groups, showToast]);
-
-    // For each group: shuffle its members then distribute them evenly
-    // across sabbaths using a round-robin rotation so no sabbath is overloaded
-    const groupAssignments = activeGroups.map(g => {
-      const shuffledMembers = fisherYates([...(g.memberIds || [])]);
-      const perSabbath = Math.ceil(shuffledMembers.length / sabbaths.length);
-
-      // Slice members into even chunks, one chunk per sabbath
-      const chunks = sabbaths.map((_, i) =>
-        shuffledMembers.slice(i * perSabbath, (i + 1) * perSabbath)
-      );
-
-      return { groupId: g.id, chunks };
+    setShuffleHistory(function(h) {
+      return [...h, {
+        date: new Date().toISOString(),
+        groups: groups.length,
+        participants: allMemberIds.length,
+      }];
     });
 
-    // Build updated sabbath events — each gets a slice of each group's members
-    const updatedSabbaths = sabbaths.map((sab, i) => {
-      // Collect member IDs for this sabbath from all groups
-      const memberIdsForSabbath = groupAssignments.flatMap(ga => ga.chunks[i] || []);
-      return {
-        ...sab,
-        groupIds: activeGroups.map(g => g.id), // all groups assigned
-        participants: memberIdsForSabbath,       // the specific members for this sabbath
-      };
-    });
-
-    setEvents(es => es.map(e => updatedSabbaths.find(u => u.id === e.id) || e));
-   setShuffleHistory(h => [...h, {
-      date: new Date().toISOString(),
-      count: sabbaths.length,
-      groups: activeGroups.length,
-      participants: activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0),
-    }]);
     setShowShuffleConfirm(false);
     showToast('Members reshuffled successfully!', 'success');
   }, [groups, showToast]);
 
-  // ── Export ──────────────────────────────────────────────────────────────────
-  const doExport = useCallback((format) => {
-    let content, type, filename;
+  const doExport = useCallback(function(format) {
+    var content, type, filename;
     if (format === 'csv') {
-      const rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
-      events.forEach(e => {
-        const names = (e.participants || []).map(pid => participants.find(p => p.id === pid)?.name || '').filter(Boolean).join('; ');
-        const grpNames = (e.groupIds || []).map(gid => groups.find(g => g.id === gid)?.name || '').filter(Boolean).join('; ');
-        rows.push([e.title, e.date, e.time||'', EVENT_TYPES[e.type]?.label||e.type, e.description||'', names, grpNames]);
+      var rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
+      events.forEach(function(e) {
+        var names = (e.participants || []).map(function(pid) { var p = participants.find(function(p) { return p.id === pid; }); return p ? p.name : ''; }).filter(Boolean).join('; ');
+        var grpNames = (e.groupIds || []).map(function(gid) { var g = groups.find(function(g) { return g.id === gid; }); return g ? g.name : ''; }).filter(Boolean).join('; ');
+        rows.push([e.title, e.date, e.time || '', EVENT_TYPES[e.type] ? EVENT_TYPES[e.type].label : e.type, e.description || '', names, grpNames]);
       });
-      content = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-      type = 'text/csv'; filename = 'church-calendar.csv';
+      content = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+      type = 'text/csv';
+      filename = 'church-calendar.csv';
     } else {
-      content = JSON.stringify({ events, participants, groups, shuffleHistory }, null, 2);
-      type = 'application/json'; filename = 'church-calendar.json';
+      content = JSON.stringify({ events: events, participants: participants, groups: groups, shuffleHistory: shuffleHistory }, null, 2);
+      type = 'application/json';
+      filename = 'church-calendar.json';
     }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type }));
-    a.download = filename; a.click();
-    showToast(`${format.toUpperCase()} exported!`, 'success');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type: type }));
+    a.download = filename;
+    a.click();
+    showToast(format.toUpperCase() + ' exported!', 'success');
   }, [events, participants, groups, shuffleHistory, showToast]);
 
-  const tabs = [
+  var tabs = [
     { id:'calendar',     label:'Calendar',  icon:Calendar },
     { id:'participants', label:'Members',   icon:Users },
     { id:'admin',        label:'Dashboard', icon:Settings },
@@ -288,7 +258,7 @@ const confirmShuffle = useCallback(() => {
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f8fafc' }}>
       <div style={{ textAlign:'center' }}>
         <div style={{ width:44, height:44, margin:'0 auto 16px', border:'3px solid #4f46e5', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-        <p style={{ color:'#94a3b8', fontSize:14, margin:0 }}>Loading church calendar…</p>
+        <p style={{ color:'#94a3b8', fontSize:14, margin:0 }}>Loading church calendar...</p>
       </div>
     </div>
   );
@@ -307,17 +277,19 @@ const confirmShuffle = useCallback(() => {
             </div>
           </div>
           <nav style={{ display:'flex', gap:2 }}>
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{
-                display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
-                fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
-              }}>
-                <t.icon size={15}/>
-                <span className="nav-label">{t.label}</span>
-              </button>
-            ))}
+            {tabs.map(function(t) {
+              return (
+                <button key={t.id} onClick={function() { setTab(t.id); }} style={{
+                  display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
+                  fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
+                }}>
+                  <t.icon size={15}/>
+                  <span className="nav-label">{t.label}</span>
+                </button>
+              );
+            })}
           </nav>
-          <button onClick={() => isAdmin ? setIsAdmin(false) : setShowLogin(true)} style={{
+          <button onClick={function() { if (isAdmin) { setIsAdmin(false); } else { setShowLogin(true); } }} style={{
             display:'flex', alignItems:'center', gap:5, padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
             borderRadius:9, background:'transparent', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
           }}>
@@ -343,13 +315,13 @@ const confirmShuffle = useCallback(() => {
             showToast={showToast}
           />
         )}
-  {tab === 'participants' && (
+        {tab === 'participants' && (
           <ParticipantsView
             participants={participants} events={events} groups={groups} isAdmin={isAdmin}
             onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
             onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
             onShuffle={doShuffle} shuffleHistory={shuffleHistory}
-            onClearHistory={() => setShuffleHistory([])}
+            onClearHistory={function() { setShuffleHistory([]); }}
             showToast={showToast}
           />
         )}
@@ -363,22 +335,20 @@ const confirmShuffle = useCallback(() => {
 
       {showLogin && (
         <LoginModal
-          onLogin={() => { setIsAdmin(true); setShowLogin(false); showToast('Welcome, Admin!', 'success'); }}
-          onClose={() => setShowLogin(false)}
+          onLogin={function() { setIsAdmin(true); setShowLogin(false); showToast('Welcome, Admin!', 'success'); }}
+          onClose={function() { setShowLogin(false); }}
         />
       )}
 
       {showShuffleConfirm && (
         <ShuffleConfirmModal
           groups={groups}
-          participants={participants}
-          events={events}
           onConfirm={confirmShuffle}
-          onClose={() => setShowShuffleConfirm(false)}
+          onClose={function() { setShowShuffleConfirm(false); }}
         />
       )}
 
-      {toast && <Toast {...toast} onClose={() => setToast(null)}/>}
+      {toast && <Toast {...toast} onClose={function() { setToast(null); }}/>}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
