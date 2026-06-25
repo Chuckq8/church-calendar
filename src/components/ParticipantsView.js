@@ -257,18 +257,28 @@ export default function ParticipantsView({
     const active = participants.filter(p => p.isActive);
     if (active.length === 0) { showToast('No active members to distribute', 'error'); return; }
 
-    // True even distribution: use round-robin so sizes differ by at most 1
-    const shuffled = [...active].sort(() => Math.random() - 0.5);
-    const updatedGroups = groups.map(g => ({ ...g, memberIds: [] }));
-    shuffled.forEach((p, i) => {
-      updatedGroups[i % groups.length].memberIds.push(p.id);
+    // Find members not yet in ANY group
+    const allAssignedIds = new Set(groups.flatMap(g => g.memberIds || []));
+    const unassigned = active.filter(p => !allAssignedIds.has(p.id));
+
+    if (unassigned.length === 0) {
+      showToast('All members are already in a group', 'info');
+      return;
+    }
+
+    // Sort groups by current size ascending so smallest groups get filled first
+    const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+    const updatedGroups = groups.map(g => ({ ...g, memberIds: [...(g.memberIds || [])] }));
+
+    // Round-robin into groups sorted by size (smallest first)
+    shuffled.forEach(p => {
+      updatedGroups.sort((a, b) => a.memberIds.length - b.memberIds.length);
+      updatedGroups[0].memberIds.push(p.id);
     });
+
     updatedGroups.forEach(g => onEditGroup(g));
-    const perGroup = Math.floor(active.length / groups.length);
-    const extras = active.length % groups.length;
     showToast(
-      'Distributed ' + active.length + ' members across ' + groups.length + ' groups (' +
-      (extras > 0 ? extras + ' groups with ' + (perGroup + 1) + ', rest with ' + perGroup : 'exactly ' + perGroup + ' each') + ')',
+      unassigned.length + ' new member' + (unassigned.length !== 1 ? 's' : '') + ' added to groups',
       'success'
     );
   };
