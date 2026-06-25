@@ -203,7 +203,7 @@ export default function App() {
                 Church Calendar
               </div>
               <div style={{ fontSize:10, color:'rgba(255,255,255,0.65)', marginTop:1 }}>
-                Beyond the Norm Ministry
+                Lakeland Fellowship Church
               </div>
             </div>
           </div>
