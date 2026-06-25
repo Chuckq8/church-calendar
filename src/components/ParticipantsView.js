@@ -5,7 +5,6 @@ import { Search, Edit2, Trash2, Users, ChevronDown, ChevronUp, UserPlus, FolderP
 import { Modal, Btn, Field, inputStyle } from './UI';
 import { uid } from '../utils';
 
-// ── Member Form ───────────────────────────────────────────────────────────────
 function MemberForm({ member, onSave, onClose }) {
   const [name, setName]       = useState(member?.name || '');
   const [role, setRole]       = useState(member?.role || '');
@@ -50,7 +49,6 @@ function MemberForm({ member, onSave, onClose }) {
   );
 }
 
-// ── Group Form ────────────────────────────────────────────────────────────────
 function GroupForm({ group, participants, onSave, onClose }) {
   const [name, setName]         = useState(group?.name || '');
   const [description, setDesc]  = useState(group?.description || '');
@@ -93,7 +91,6 @@ function GroupForm({ group, participants, onSave, onClose }) {
                   display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
                   cursor:'pointer', borderBottom:'1px solid #f8fafc',
                   background: memberIds.includes(p.id) ? '#eff0ff' : '#fff',
-                  transition:'background 0.1s',
                 }}>
                   <div style={{
                     width:18, height:18, borderRadius:4, border:'2px solid',
@@ -122,10 +119,12 @@ function GroupForm({ group, participants, onSave, onClose }) {
   );
 }
 
-// ── Group Card ────────────────────────────────────────────────────────────────
 function GroupCard({ group, participants, isAdmin, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const members = participants.filter(p => (group.memberIds || []).includes(p.id));
+  const total = participants.length > 0
+    ? Math.round((members.length / participants.length) * 100)
+    : 0;
 
   return (
     <div style={{ background:'#fff', borderRadius:14, border:'1.5px solid #e2e8f0', overflow:'hidden', marginBottom:12 }}>
@@ -134,10 +133,19 @@ function GroupCard({ group, participants, isAdmin, onEdit, onDelete }) {
           <Users size={18} color="#4f46e5"/>
         </div>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:'#1e293b' }}>{group.name}</div>
-          <div style={{ fontSize:12, color:'#94a3b8', marginTop:1 }}>
-            {members.length} member{members.length !== 1 ? 's' : ''}
-            {group.description ? ` · ${group.description}` : ''}
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'#1e293b' }}>{group.name}</div>
+            <span style={{ fontSize:12, fontWeight:700, background:'#eff0ff', color:'#4f46e5', borderRadius:20, padding:'1px 9px' }}>
+              {members.length}
+            </span>
+          </div>
+          {group.description && <div style={{ fontSize:12, color:'#94a3b8', marginTop:1 }}>{group.description}</div>}
+          {/* Distribution bar */}
+          <div style={{ marginTop:6, display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ flex:1, height:4, background:'#f1f5f9', borderRadius:4, overflow:'hidden' }}>
+              <div style={{ width: total + '%', height:'100%', background:'#4f46e5', borderRadius:4, transition:'width 0.3s' }}/>
+            </div>
+            <span style={{ fontSize:10, color:'#94a3b8', whiteSpace:'nowrap' }}>{total}% of members</span>
           </div>
         </div>
         {isAdmin && (
@@ -183,56 +191,50 @@ function GroupCard({ group, participants, isAdmin, onEdit, onDelete }) {
   );
 }
 
-// ── Shuffle History ───────────────────────────────────────────────────────────
 function ShuffleHistory({ history, onClearHistory }) {
   const [confirmClear, setConfirmClear] = useState(false);
-
-  if (!history || history.length === 0) return (
-    <div style={{ background:'#f8fafc', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginTop:20, textAlign:'center', color:'#94a3b8', fontSize:13 }}>
-      No shuffle history yet
-    </div>
-  );
 
   return (
     <div style={{ background:'#f8fafc', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginTop:20 }}>
       <div style={{ display:'flex', alignItems:'center', marginBottom:10 }}>
         <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', flex:1 }}>SHUFFLE HISTORY</div>
-        {!confirmClear
-          ? <button onClick={() => setConfirmClear(true)} style={{ fontSize:11, color:'#dc2626', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>
-              🗑 Clear History
-            </button>
-          : <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              <span style={{ fontSize:12, color:'#64748b' }}>Sure?</span>
-              <button onClick={() => { onClearHistory(); setConfirmClear(false); }} style={{ fontSize:11, color:'#fff', background:'#dc2626', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Yes, clear</button>
-              <button onClick={() => setConfirmClear(false)} style={{ fontSize:11, color:'#64748b', background:'#f1f5f9', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Cancel</button>
-            </div>
-        }
-      </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-        {[...history].reverse().map((h, i) => {
-          const date = new Date(h.date);
-          const dateLabel = date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
-          const timeLabel = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-          return (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#fff', borderRadius:9, border:'1px solid #f1f5f9' }}>
-              <div style={{ width:30, height:30, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>
-                🔀
+        {history && history.length > 0 && (
+          !confirmClear
+            ? <button onClick={() => setConfirmClear(true)} style={{ fontSize:11, color:'#dc2626', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>
+                🗑 Clear History
+              </button>
+            : <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <span style={{ fontSize:12, color:'#64748b' }}>Sure?</span>
+                <button onClick={() => { onClearHistory(); setConfirmClear(false); }} style={{ fontSize:11, color:'#fff', background:'#dc2626', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Yes, clear</button>
+                <button onClick={() => setConfirmClear(false)} style={{ fontSize:11, color:'#64748b', background:'#f1f5f9', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Cancel</button>
               </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>
-                  {h.groups} group{h.groups !== 1 ? 's' : ''} · {h.participants} member{h.participants !== 1 ? 's' : ''} reshuffled
+        )}
+      </div>
+      {!history || history.length === 0
+        ? <div style={{ textAlign:'center', color:'#94a3b8', fontSize:13, padding:'8px 0' }}>No shuffle history yet</div>
+        : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            {[...history].reverse().map((h, i) => {
+              const date = new Date(h.date);
+              const dateLabel = date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+              const timeLabel = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#fff', borderRadius:9, border:'1px solid #f1f5f9' }}>
+                  <div style={{ width:30, height:30, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>🔀</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>
+                      {h.groups} group{h.groups !== 1 ? 's' : ''} · {h.participants} member{h.participants !== 1 ? 's' : ''} reshuffled
+                    </div>
+                    <div style={{ fontSize:11, color:'#94a3b8' }}>{dateLabel} at {timeLabel}</div>
+                  </div>
                 </div>
-                <div style={{ fontSize:11, color:'#94a3b8' }}>{dateLabel} at {timeLabel}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+      }
     </div>
   );
 }
 
-// ── Main View ─────────────────────────────────────────────────────────────────
 export default function ParticipantsView({
   participants, events, groups, isAdmin,
   onAdd, onEdit, onDelete,
@@ -247,21 +249,28 @@ export default function ParticipantsView({
   const [editingGroup, setEditGroup]    = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Auto-distribute all active members evenly across groups
+  const activeCount   = participants.filter(p => p.isActive).length;
+  const inactiveCount = participants.length - activeCount;
+
   const autoDistribute = () => {
     if (groups.length === 0) { showToast('Create some groups first', 'error'); return; }
     const active = participants.filter(p => p.isActive);
     if (active.length === 0) { showToast('No active members to distribute', 'error'); return; }
 
-    // Shuffle members randomly then split evenly across groups
+    // True even distribution: use round-robin so sizes differ by at most 1
     const shuffled = [...active].sort(() => Math.random() - 0.5);
-    const perGroup = Math.ceil(shuffled.length / groups.length);
-    const updatedGroups = groups.map((g, i) => ({
-      ...g,
-      memberIds: shuffled.slice(i * perGroup, (i + 1) * perGroup).map(p => p.id),
-    }));
+    const updatedGroups = groups.map(g => ({ ...g, memberIds: [] }));
+    shuffled.forEach((p, i) => {
+      updatedGroups[i % groups.length].memberIds.push(p.id);
+    });
     updatedGroups.forEach(g => onEditGroup(g));
-    showToast(`✅ ${active.length} members distributed evenly across ${groups.length} groups!`, 'success');
+    const perGroup = Math.floor(active.length / groups.length);
+    const extras = active.length % groups.length;
+    showToast(
+      'Distributed ' + active.length + ' members across ' + groups.length + ' groups (' +
+      (extras > 0 ? extras + ' groups with ' + (perGroup + 1) + ', rest with ' + perGroup : 'exactly ' + perGroup + ' each') + ')',
+      'success'
+    );
   };
 
   const filtered = participants.filter(p =>
@@ -300,6 +309,20 @@ export default function ParticipantsView({
       {/* ── MEMBERS TAB ── */}
       {viewTab === 'members' && (
         <div>
+          {/* Member count summary */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12, marginBottom:18 }}>
+            {[
+              { label:'Total Members', value: participants.length, color:'#4f46e5', bg:'#eff0ff' },
+              { label:'Active',        value: activeCount,         color:'#059669', bg:'#f0fdf4' },
+              { label:'Inactive',      value: inactiveCount,       color:'#94a3b8', bg:'#f8fafc' },
+            ].map(({ label, value, color, bg }) => (
+              <div key={label} style={{ background: bg, borderRadius:12, padding:'14px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
+                <div style={{ fontSize:28, fontWeight:800, color }}>{value}</div>
+                <div style={{ fontSize:12, color:'#64748b', marginTop:2, fontWeight:600 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
           <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap', alignItems:'center' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, background:'#fff', border:'1.5px solid #e2e8f0', borderRadius:9, padding:'7px 12px', flex:1, minWidth:200 }}>
               <Search size={14} color="#94a3b8"/>
@@ -318,11 +341,12 @@ export default function ParticipantsView({
                 <Users size={40} style={{ margin:'0 auto 12px', display:'block', opacity:0.3 }}/>
                 <div style={{ fontSize:15, fontWeight:600, color:'#64748b' }}>No members found</div>
                 <div style={{ fontSize:13, marginTop:4 }}>
-                  {isAdmin ? 'Tap "Add Member" to get started' : 'Try a different search or add a new member'}
+                  {isAdmin ? 'Tap "Add Member" to get started' : 'Try a different search'}
                 </div>
               </div>
             : <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14 }}>
                 {filtered.map(p => {
+                  const memberGroups = groups.filter(g => (g.memberIds || []).includes(p.id));
                   const memberEvents = events.filter(e =>
                     (e.participants || []).includes(p.id) ||
                     (e.groupIds || []).some(gid => {
@@ -352,10 +376,12 @@ export default function ParticipantsView({
                         )}
                       </div>
                       {p.email && <div style={{ fontSize:12, color:'#64748b', marginBottom:6 }}>✉ {p.email}</div>}
-                      <div style={{ fontSize:12, color:'#94a3b8' }}>📅 {memberEvents.length} event{memberEvents.length !== 1 ? 's' : ''} assigned</div>
-                      {groups.filter(g => (g.memberIds||[]).includes(p.id)).length > 0 && (
-                        <div style={{ marginTop:8, display:'flex', flexWrap:'wrap', gap:4 }}>
-                          {groups.filter(g => (g.memberIds||[]).includes(p.id)).map(g => (
+                      <div style={{ fontSize:12, color:'#94a3b8', marginBottom: memberGroups.length > 0 ? 8 : 0 }}>
+                        📅 {memberEvents.length} event{memberEvents.length !== 1 ? 's' : ''} assigned
+                      </div>
+                      {memberGroups.length > 0 && (
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          {memberGroups.map(g => (
                             <span key={g.id} style={{ fontSize:10, fontWeight:700, background:'#eff0ff', color:'#4f46e5', borderRadius:20, padding:'2px 8px' }}>{g.name}</span>
                           ))}
                         </div>
@@ -371,7 +397,6 @@ export default function ParticipantsView({
       {/* ── GROUPS TAB ── */}
       {viewTab === 'groups' && (
         <div>
-          {/* Toolbar */}
           <div style={{ display:'flex', gap:10, marginBottom:18, alignItems:'center', flexWrap:'wrap' }}>
             <div style={{ flex:1, fontSize:14, color:'#64748b' }}>
               {groups.length} group{groups.length !== 1 ? 's' : ''} · {participants.length} total members
@@ -379,7 +404,7 @@ export default function ParticipantsView({
             {isAdmin && (
               <div style={{ display:'flex', gap:8 }}>
                 <Btn variant="ghost" onClick={autoDistribute} style={{ gap:6 }}>
-                  ⚡ Auto-distribute Members
+                  ⚡ Auto-distribute
                 </Btn>
                 <Btn variant="ghost" onClick={onShuffle} style={{ gap:6, color:'#7c3aed', borderColor:'#c4b5fd' }}>
                   <Shuffle size={14}/> Reshuffle
@@ -391,11 +416,38 @@ export default function ParticipantsView({
             )}
           </div>
 
-          {/* Info box */}
+          {/* Distribution summary */}
+          {groups.length > 0 && participants.length > 0 && (
+            <div style={{ background:'#fff', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginBottom:16 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', marginBottom:10 }}>MEMBER DISTRIBUTION</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {groups.map(g => {
+                  const count = (g.memberIds || []).length;
+                  const pct = participants.length > 0 ? Math.round((count / participants.length) * 100) : 0;
+                  const ideal = Math.ceil(participants.length / groups.length);
+                  const isBalanced = Math.abs(count - ideal) <= 1;
+                  return (
+                    <div key={g.id} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ width:80, fontSize:12, fontWeight:600, color:'#475569', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{g.name}</div>
+                      <div style={{ flex:1, height:8, background:'#f1f5f9', borderRadius:4, overflow:'hidden' }}>
+                        <div style={{ width: pct + '%', height:'100%', background: isBalanced ? '#4f46e5' : '#f59e0b', borderRadius:4, transition:'width 0.3s' }}/>
+                      </div>
+                      <div style={{ width:60, fontSize:12, color:'#64748b', textAlign:'right' }}>
+                        {count} <span style={{ color: isBalanced ? '#059669' : '#f59e0b', fontWeight:700 }}>({pct}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
+                Ideal: ~{Math.ceil(participants.length / groups.length)} per group · <span style={{ color:'#4f46e5' }}>■</span> balanced · <span style={{ color:'#f59e0b' }}>■</span> uneven
+              </div>
+            </div>
+          )}
+
           {isAdmin && participants.filter(p => p.isActive).length > 0 && groups.length > 0 && (
             <div style={{ background:'#eff0ff', border:'1.5px solid #c7d2fe', borderRadius:10, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#4338ca' }}>
-              💡 <strong>Auto-distribute</strong> will evenly split all {participants.filter(p=>p.isActive).length} active members across {groups.length} groups
-              (~{Math.ceil(participants.filter(p=>p.isActive).length / groups.length)} per group). <strong>Reshuffle</strong> re-randomizes members across upcoming Sabbath events.
+              💡 <strong>Auto-distribute</strong> evenly splits all {participants.filter(p => p.isActive).length} active members across {groups.length} groups using round-robin (max 1 member difference per group).
             </div>
           )}
 
@@ -416,8 +468,7 @@ export default function ParticipantsView({
               ))
           }
 
-          {/* Shuffle History */}
-         <ShuffleHistory history={shuffleHistory} onClearHistory={onClearHistory} />
+          <ShuffleHistory history={shuffleHistory} onClearHistory={onClearHistory} />
         </div>
       )}
 
