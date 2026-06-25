@@ -184,14 +184,32 @@ function GroupCard({ group, participants, isAdmin, onEdit, onDelete }) {
 }
 
 // ── Shuffle History ───────────────────────────────────────────────────────────
-function ShuffleHistory({ history }) {
-  if (!history || history.length === 0) return null;
+function ShuffleHistory({ history, onClearHistory }) {
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  if (!history || history.length === 0) return (
+    <div style={{ background:'#f8fafc', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginTop:20, textAlign:'center', color:'#94a3b8', fontSize:13 }}>
+      No shuffle history yet
+    </div>
+  );
 
   return (
     <div style={{ background:'#f8fafc', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginTop:20 }}>
-      <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', marginBottom:10 }}>SHUFFLE HISTORY</div>
+      <div style={{ display:'flex', alignItems:'center', marginBottom:10 }}>
+        <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', flex:1 }}>SHUFFLE HISTORY</div>
+        {!confirmClear
+          ? <button onClick={() => setConfirmClear(true)} style={{ fontSize:11, color:'#dc2626', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>
+              🗑 Clear History
+            </button>
+          : <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              <span style={{ fontSize:12, color:'#64748b' }}>Sure?</span>
+              <button onClick={() => { onClearHistory(); setConfirmClear(false); }} style={{ fontSize:11, color:'#fff', background:'#dc2626', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Yes, clear</button>
+              <button onClick={() => setConfirmClear(false)} style={{ fontSize:11, color:'#64748b', background:'#f1f5f9', border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontWeight:600 }}>Cancel</button>
+            </div>
+        }
+      </div>
       <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-        {[...history].reverse().slice(0, 5).map((h, i) => {
+        {[...history].reverse().map((h, i) => {
           const date = new Date(h.date);
           const dateLabel = date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
           const timeLabel = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
@@ -202,22 +220,14 @@ function ShuffleHistory({ history }) {
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>
-                  {h.groups} group{h.groups !== 1 ? 's' : ''} · {h.participants} member{h.participants !== 1 ? 's' : ''} shuffled
+                  {h.groups} group{h.groups !== 1 ? 's' : ''} · {h.participants} member{h.participants !== 1 ? 's' : ''} reshuffled
                 </div>
                 <div style={{ fontSize:11, color:'#94a3b8' }}>{dateLabel} at {timeLabel}</div>
-              </div>
-              <div style={{ fontSize:11, fontWeight:700, background:'#dcfce7', color:'#166534', borderRadius:20, padding:'2px 9px' }}>
-                {h.count} Sabbath{h.count !== 1 ? 's' : ''}
               </div>
             </div>
           );
         })}
       </div>
-      {history.length > 5 && (
-        <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', marginTop:8 }}>
-          + {history.length - 5} older shuffles
-        </div>
-      )}
     </div>
   );
 }
@@ -227,7 +237,7 @@ export default function ParticipantsView({
   participants, events, groups, isAdmin,
   onAdd, onEdit, onDelete,
   onAddGroup, onEditGroup, onDeleteGroup,
-  onShuffle, shuffleHistory, showToast,
+  onShuffle, shuffleHistory, onClearHistory, showToast,
 }) {
   const [viewTab, setViewTab]           = useState('members');
   const [search, setSearch]             = useState('');
@@ -407,7 +417,7 @@ export default function ParticipantsView({
           }
 
           {/* Shuffle History */}
-          <ShuffleHistory history={shuffleHistory} />
+         <ShuffleHistory history={shuffleHistory} onClearHistory={onClearHistory} />
         </div>
       )}
 
