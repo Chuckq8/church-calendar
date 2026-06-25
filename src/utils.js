@@ -8,6 +8,13 @@ export function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+export function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString('en-US', { weekday:'short', year:'numeric', month:'long', day:'numeric' });
+}
+
 export function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
 }
