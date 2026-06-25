@@ -3,14 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';
 import { storageGet, storageSet } from './storage';
-import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
+import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, DEFAULT_GROUPS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
 import { todayStr, fisherYates } from './utils';
 import { Toast, Modal, Field, inputStyle, Btn } from './components/UI';
 import CalendarView from './components/CalendarView';
 import ParticipantsView from './components/ParticipantsView';
 import AdminDashboard from './components/AdminDashboard';
 
-// ─── LOGIN MODAL ──────────────────────────────────────────────────────────────
 function LoginModal({ onLogin, onClose }) {
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
@@ -58,11 +57,11 @@ function LoginModal({ onLogin, onClose }) {
   );
 }
 
-// ─── APP ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState('calendar');
   const [events, setEvents] = useState([]);
   const [participants, setParticipants] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [shuffleHistory, setShuffleHistory] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -71,11 +70,11 @@ export default function App() {
 
   const showToast = useCallback((message, type = 'info') => setToast({ message, type }), []);
 
-  // ── Bootstrap data ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const savedEvents = storageGet('church-events');
+    const savedEvents       = storageGet('church-events');
     const savedParticipants = storageGet('church-participants');
-    const savedHistory = storageGet('church-shuffle-history');
+    const savedGroups       = storageGet('church-groups');
+    const savedHistory      = storageGet('church-shuffle-history');
 
     if (savedEvents) {
       setEvents(savedEvents);
@@ -92,93 +91,89 @@ export default function App() {
       storageSet('church-participants', DEFAULT_PARTICIPANTS);
     }
 
+    if (savedGroups) {
+      setGroups(savedGroups);
+    } else {
+      setGroups(DEFAULT_GROUPS);
+      storageSet('church-groups', DEFAULT_GROUPS);
+    }
+
     if (savedHistory) setShuffleHistory(savedHistory);
     setLoaded(true);
   }, []);
 
-  // ── Persist on change ───────────────────────────────────────────────────────
   useEffect(() => { if (loaded) storageSet('church-events', events); }, [events, loaded]);
   useEffect(() => { if (loaded) storageSet('church-participants', participants); }, [participants, loaded]);
+  useEffect(() => { if (loaded) storageSet('church-groups', groups); }, [groups, loaded]);
   useEffect(() => { if (loaded) storageSet('church-shuffle-history', shuffleHistory); }, [shuffleHistory, loaded]);
 
-  // ── Event CRUD ──────────────────────────────────────────────────────────────
-  const addEvent = useCallback(ev => setEvents(es => [...es, ev]), []);
-  const editEvent = useCallback(ev => setEvents(es => es.map(e => e.id === ev.id ? ev : e)), []);
+  const addEvent    = useCallback(ev => setEvents(es => [...es, ev]), []);
+  const editEvent   = useCallback(ev => setEvents(es => es.map(e => e.id === ev.id ? ev : e)), []);
   const deleteEvent = useCallback(id => setEvents(es => es.filter(e => e.id !== id)), []);
 
-  // ── Participant CRUD ────────────────────────────────────────────────────────
-  const addParticipant = useCallback(p => setParticipants(ps => [...ps, p]), []);
-  const editParticipant = useCallback(p => setParticipants(ps => ps.map(x => x.id === p.id ? p : x)), []);
+  const addParticipant    = useCallback(p  => setParticipants(ps => [...ps, p]), []);
+  const editParticipant   = useCallback(p  => setParticipants(ps => ps.map(x => x.id === p.id ? p : x)), []);
   const deleteParticipant = useCallback(id => {
     setParticipants(ps => ps.filter(p => p.id !== id));
     setEvents(es => es.map(e => ({ ...e, participants: (e.participants || []).filter(pid => pid !== id) })));
+    setGroups(gs => gs.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(mid => mid !== id) })));
   }, []);
 
-  // ── Shuffle ─────────────────────────────────────────────────────────────────
+  const addGroup    = useCallback(g  => setGroups(gs => [...gs, g]), []);
+  const editGroup   = useCallback(g  => setGroups(gs => gs.map(x => x.id === g.id ? g : x)), []);
+  const deleteGroup = useCallback(id => {
+    setGroups(gs => gs.filter(g => g.id !== id));
+    setEvents(es => es.map(e => ({ ...e, groupIds: (e.groupIds || []).filter(gid => gid !== id) })));
+  }, []);
+
   const doShuffle = useCallback(() => {
     const today = todayStr();
     const active = participants.filter(p => p.isActive);
     if (!active.length) { showToast('No active members to shuffle', 'error'); return; }
-
     const sabbaths = events
       .filter(e => e.type === 'sabbath' && e.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date));
-
     if (!sabbaths.length) { showToast('No upcoming Sabbath gatherings found', 'error'); return; }
-
     const perEvent = Math.min(active.length, 5);
     const updated = sabbaths.map(sab => ({
       ...sab,
       participants: fisherYates(active).slice(0, perEvent).map(p => p.id),
     }));
-
     setEvents(es => es.map(e => updated.find(s => s.id === e.id) || e));
     setShuffleHistory(h => [...h, { date: today, count: sabbaths.length, participants: active.length }]);
   }, [events, participants, showToast]);
 
-  // ── Export ──────────────────────────────────────────────────────────────────
   const doExport = useCallback((format) => {
     let content, type, filename;
-
     if (format === 'csv') {
-      const rows = [['Title','Date','Time','Type','Description','Participants']];
+      const rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
       events.forEach(e => {
-        const names = (e.participants || [])
-          .map(pid => participants.find(p => p.id === pid)?.name || '')
-          .filter(Boolean).join('; ');
-        rows.push([e.title, e.date, e.time||'', EVENT_TYPES[e.type]?.label||e.type, e.description||'', names]);
+        const names = (e.participants || []).map(pid => participants.find(p => p.id === pid)?.name || '').filter(Boolean).join('; ');
+        const grpNames = (e.groupIds || []).map(gid => groups.find(g => g.id === gid)?.name || '').filter(Boolean).join('; ');
+        rows.push([e.title, e.date, e.time||'', EVENT_TYPES[e.type]?.label||e.type, e.description||'', names, grpNames]);
       });
       content = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-      type = 'text/csv';
-      filename = 'church-calendar.csv';
+      type = 'text/csv'; filename = 'church-calendar.csv';
     } else {
-      content = JSON.stringify({ events, participants, shuffleHistory }, null, 2);
-      type = 'application/json';
-      filename = 'church-calendar.json';
+      content = JSON.stringify({ events, participants, groups, shuffleHistory }, null, 2);
+      type = 'application/json'; filename = 'church-calendar.json';
     }
-
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([content], { type }));
-    a.download = filename;
-    a.click();
+    a.download = filename; a.click();
     showToast(`${format.toUpperCase()} exported!`, 'success');
-  }, [events, participants, shuffleHistory, showToast]);
+  }, [events, participants, groups, shuffleHistory, showToast]);
 
-  // ── Tabs ────────────────────────────────────────────────────────────────────
   const tabs = [
-    { id:'calendar', label:'Calendar', icon:Calendar },
-    { id:'participants', label:'Members', icon:Users },
-    { id:'admin', label:'Dashboard', icon:Settings },
+    { id:'calendar',     label:'Calendar',  icon:Calendar },
+    { id:'participants', label:'Members',   icon:Users },
+    { id:'admin',        label:'Dashboard', icon:Settings },
   ];
 
   if (!loaded) return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f8fafc' }}>
       <div style={{ textAlign:'center' }}>
-        <div style={{
-          width:44, height:44, margin:'0 auto 16px',
-          border:'3px solid #4f46e5', borderTopColor:'transparent',
-          borderRadius:'50%', animation:'spin 0.8s linear infinite',
-        }}/>
+        <div style={{ width:44, height:44, margin:'0 auto 16px', border:'3px solid #4f46e5', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
         <p style={{ color:'#94a3b8', fontSize:14, margin:0 }}>Loading church calendar…</p>
       </div>
     </div>
@@ -186,91 +181,70 @@ export default function App() {
 
   return (
     <div style={{ minHeight:'100vh', background:'#f8fafc', fontFamily:"'Inter', system-ui, sans-serif" }}>
-      {/* ── Header ── */}
-      <header style={{
-        background:'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-        position:'sticky', top:0, zIndex:100,
-        boxShadow:'0 2px 16px rgba(79,70,229,0.28)',
-      }}>
+      <header style={{ background:'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', position:'sticky', top:0, zIndex:100, boxShadow:'0 2px 16px rgba(79,70,229,0.28)' }}>
         <div style={{ maxWidth:1100, margin:'0 auto', padding:'0 16px', display:'flex', alignItems:'center', height:62, gap:10 }}>
-          {/* Logo */}
           <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
             <div style={{ width:38, height:38, borderRadius:11, background:'rgba(255,255,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <Bell size={19} color="#fff"/>
             </div>
             <div style={{ minWidth:0 }}>
-              <div style={{ fontSize:15, fontWeight:800, color:'#fff', lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                Church Calendar
-              </div>
-              <div style={{ fontSize:10, color:'rgba(255,255,255,0.65)', marginTop:1 }}>
-                Lakeland Fellowship Church
-              </div>
+              <div style={{ fontSize:15, fontWeight:800, color:'#fff', lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>Church Calendar</div>
+              <div style={{ fontSize:10, color:'rgba(255,255,255,0.65)', marginTop:1 }}>Lakeland Fellowship Church</div>
             </div>
           </div>
-
-          {/* Nav */}
           <nav style={{ display:'flex', gap:2 }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
-                display:'flex', alignItems:'center', gap:5,
-                padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
-                fontSize:13, fontWeight:600,
-                background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent',
-                color:'#fff', transition:'background 0.15s',
+                display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
+                fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
               }}>
                 <t.icon size={15}/>
                 <span className="nav-label">{t.label}</span>
               </button>
             ))}
           </nav>
-
-          {/* Admin toggle */}
           <button onClick={() => isAdmin ? setIsAdmin(false) : setShowLogin(true)} style={{
-            display:'flex', alignItems:'center', gap:5,
-            padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
-            borderRadius:9, background:'transparent', color:'#fff',
-            cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
+            display:'flex', alignItems:'center', gap:5, padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
+            borderRadius:9, background:'transparent', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
           }}>
             {isAdmin ? <><LogOut size={13}/> Exit Admin</> : <><LogIn size={13}/> Admin</>}
           </button>
         </div>
       </header>
 
-      {/* ── Admin banner ── */}
       {isAdmin && (
         <div style={{ background:'#fef3c7', borderBottom:'1.5px solid #fde68a', padding:'9px 20px' }}>
           <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#92400e' }}>
             <Shield size={14}/>
-            <strong>Admin Mode</strong> — You can add, edit, and delete events; manage members; and trigger shuffles.
+            <strong>Admin Mode</strong> — You can add, edit, and delete events; manage members and groups; and trigger shuffles.
           </div>
         </div>
       )}
 
-      {/* ── Main content ── */}
       <main style={{ maxWidth:1100, margin:'0 auto', padding:'24px 16px' }}>
         {tab === 'calendar' && (
           <CalendarView
-            events={events} participants={participants} isAdmin={isAdmin}
+            events={events} participants={participants} groups={groups} isAdmin={isAdmin}
             onAddEvent={addEvent} onEditEvent={editEvent} onDeleteEvent={deleteEvent}
             showToast={showToast}
           />
         )}
         {tab === 'participants' && (
           <ParticipantsView
-            participants={participants} events={events} isAdmin={isAdmin}
+            participants={participants} events={events} groups={groups} isAdmin={isAdmin}
             onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
+            onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
             onShuffle={doShuffle} showToast={showToast}
           />
         )}
         {tab === 'admin' && (
           <AdminDashboard
-            events={events} participants={participants}
+            events={events} participants={participants} groups={groups}
             shuffleHistory={shuffleHistory} onExport={doExport}
           />
         )}
       </main>
 
-      {/* ── Modals / Toasts ── */}
       {showLogin && (
         <LoginModal
           onLogin={() => { setIsAdmin(true); setShowLogin(false); showToast('Welcome, Admin!', 'success'); }}
