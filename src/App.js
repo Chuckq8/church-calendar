@@ -347,12 +347,14 @@ export default function App() {
             showToast={showToast}
           />
         )}
-        {tab === 'participants' && (
+  {tab === 'participants' && (
           <ParticipantsView
             participants={participants} events={events} groups={groups} isAdmin={isAdmin}
             onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
             onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
-            onShuffle={doShuffle} shuffleHistory={shuffleHistory} showToast={showToast}
+            onShuffle={doShuffle} shuffleHistory={shuffleHistory}
+            onClearHistory={() => setShuffleHistory([])}
+            showToast={showToast}
           />
         )}
         {tab === 'admin' && (
