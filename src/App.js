@@ -185,25 +185,44 @@ export default function App() {
     setShowShuffleConfirm(true);
   }, []);
 
-  const confirmShuffle = useCallback(() => {
-    const today = todayStr();
-    const activeGroups = groups.filter(g => (g.memberIds || []).length > 0);
-
-    if (activeGroups.length === 0) {
-      showToast('No groups with members to shuffle', 'error');
+ const confirmShuffle = useCallback(() => {
+    if (groups.length === 0) {
+      showToast('No groups to shuffle', 'error');
       setShowShuffleConfirm(false);
       return;
     }
 
-    const sabbaths = events
-      .filter(e => e.type === 'sabbath' && e.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    // Pool ALL members from ALL groups together
+    const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
 
-    if (!sabbaths.length) {
-      showToast('No upcoming Sabbath gatherings found', 'error');
+    if (allMemberIds.length === 0) {
+      showToast('No members in any group to shuffle', 'error');
       setShowShuffleConfirm(false);
       return;
     }
+
+    // Fisher-Yates shuffle the full pool
+    const pool = [...allMemberIds].sort(() => Math.random() - 0.5);
+    const perGroup = Math.ceil(pool.length / groups.length);
+
+    // Redistribute evenly across groups
+    const updatedGroups = groups.map((g, i) => ({
+      ...g,
+      memberIds: pool.slice(i * perGroup, (i + 1) * perGroup),
+    }));
+
+    setGroups(updatedGroups);
+    // NOTE: events are NOT touched
+
+    setShuffleHistory(h => [...h, {
+      date: new Date().toISOString(),
+      groups: groups.length,
+      participants: allMemberIds.length,
+    }]);
+    setShowShuffleConfirm(false);
+    showToast(`✅ ${allMemberIds.length} members reshuffled across ${groups.length} groups!`, 'success');
+  }, [groups, showToast]);
+}
 
     // For each group: shuffle its members then distribute them evenly
     // across sabbaths using a round-robin rotation so no sabbath is overloaded
