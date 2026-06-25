@@ -185,14 +185,13 @@ export default function App() {
     setShowShuffleConfirm(true);
   }, []);
 
- const confirmShuffle = useCallback(() => {
+const confirmShuffle = useCallback(() => {
     if (groups.length === 0) {
       showToast('No groups to shuffle', 'error');
       setShowShuffleConfirm(false);
       return;
     }
 
-    // Pool ALL members from ALL groups together
     const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
 
     if (allMemberIds.length === 0) {
@@ -201,28 +200,25 @@ export default function App() {
       return;
     }
 
-    // Fisher-Yates shuffle the full pool
     const pool = [...allMemberIds].sort(() => Math.random() - 0.5);
     const perGroup = Math.ceil(pool.length / groups.length);
 
-    // Redistribute evenly across groups
     const updatedGroups = groups.map((g, i) => ({
       ...g,
       memberIds: pool.slice(i * perGroup, (i + 1) * perGroup),
     }));
 
     setGroups(updatedGroups);
-    // NOTE: events are NOT touched
 
     setShuffleHistory(h => [...h, {
       date: new Date().toISOString(),
       groups: groups.length,
       participants: allMemberIds.length,
     }]);
+
     setShowShuffleConfirm(false);
-    showToast(`✅ ${allMemberIds.length} members reshuffled across ${groups.length} groups!`, 'success');
+    showToast('Members reshuffled across groups!', 'success');
   }, [groups, showToast]);
-}
 
     // For each group: shuffle its members then distribute them evenly
     // across sabbaths using a round-robin rotation so no sabbath is overloaded
