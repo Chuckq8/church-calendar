@@ -49,15 +49,4 @@ export function generateSabbaths(startYear = 2025, endYear = 2026) {
   return sabbaths;
 }
 
-export const DEFAULT_PARTICIPANTS = [
-  { id:'p1',  name:'Elder Benjamin Cruz',   role:'Elder',              email:'benjamin@church.org', isActive:true },
-  { id:'p2',  name:'Sis. Maria Santos',     role:'Worship Leader',     email:'maria@church.org',    isActive:true },
-  { id:'p3',  name:'Bro. Joseph Reyes',     role:'Deacon',             email:'joseph@church.org',   isActive:true },
-  { id:'p4',  name:'Sis. Grace Flores',     role:"Children's Ministry",email:'grace@church.org',    isActive:true },
-  { id:'p5',  name:'Bro. Emmanuel Tan',     role:'Song Leader',        email:'emmanuel@church.org', isActive:true },
-  { id:'p6',  name:'Sis. Ruth Villanueva',  role:'Pianist',            email:'ruth@church.org',     isActive:true },
-  { id:'p7',  name:'Bro. Daniel Gomez',     role:'Scripture Reader',   email:'daniel@church.org',   isActive:true },
-  { id:'p8',  name:'Sis. Lydia Mendoza',    role:'Prayer Leader',      email:'lydia@church.org',    isActive:true },
-  { id:'p9',  name:'Bro. Solomon Bautista', role:'Speaker',            email:'solomon@church.org',  isActive:true },
-  { id:'p10', name:'Sis. Esther Ramos',     role:'Deaconess',          email:'esther@church.org',   isActive:true },
-];
+export const DEFAULT_PARTICIPANTS = [];
