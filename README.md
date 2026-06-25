@@ -1,4 +1,4 @@
-# ⛪ Church Calendar — Beyond the Norm Ministry
+# ⛪ Church Calendar — Lakeland Fellowship Church
 
 A full-featured church event calendar with participant scheduling and admin management.
 
