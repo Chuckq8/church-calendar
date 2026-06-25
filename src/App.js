@@ -25,10 +25,7 @@ function LoginModal({ onLogin, onClose }) {
 
   return (
     <Modal title="Admin Login" onClose={onClose}>
-      <div style={{ background:'#eff6ff', borderRadius:10, padding:'11px 14px', marginBottom:18, display:'flex', alignItems:'center', gap:8 }}>
-        <Shield size={15} color="#2563eb"/>
-        <span style={{ fontSize:13, color:'#2563eb' }}>Default credentials: <strong>admin / church2024</strong></span>
-      </div>
+     
       <Field label="Username">
         <input style={inputStyle} value={user} onChange={e => setUser(e.target.value)} placeholder="admin" autoComplete="username"/>
       </Field>
