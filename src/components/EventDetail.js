@@ -6,11 +6,6 @@ import { Btn } from './UI';
 export default function EventDetail({ event, participants, groups, isAdmin, onEdit, onDelete, onClose }) {
   const typeInfo = EVENT_TYPES[event.type] || EVENT_TYPES.event;
 
-  // Individual participants
-  const individualMembers = (event.participants || [])
-    .map(pid => participants.find(p => p.id === pid))
-    .filter(Boolean);
-
   // Group participants
   const assignedGroups = (event.groupIds || [])
     .map(gid => groups?.find(g => g.id === gid))
