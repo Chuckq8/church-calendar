@@ -257,8 +257,8 @@ export default function App() {
       participants: activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0),
     }]);
     setShowShuffleConfirm(false);
-    showToast(`✅ Shuffled ${activeGroups.length} groups across ${sabbaths.length} Sabbaths!`, 'success');
-  }, [events, groups, showToast]);
+    showToast(`✅ ${allMemberIds.length} members reshuffled across ${groups.length} groups!`, 'success');
+  }, [groups, showToast]);
 
   // ── Export ──────────────────────────────────────────────────────────────────
   const doExport = useCallback((format) => {
