@@ -14,28 +14,53 @@ export const EVENT_TYPES = {
 };
 
 export const DEFAULT_PARTICIPANTS = [];
-
 export const DEFAULT_GROUPS = [];
 
+// Alberta, Canada statutory holidays 2025-2026
 export const DEFAULT_HOLIDAYS = [
-  { id: 'h1', title: 'Christmas Day',  date: `${new Date().getFullYear()}-12-25`, type: 'holiday', description: 'Christmas celebration', participants: [], groupIds: [] },
-  { id: 'h2', title: 'Good Friday',    date: `${new Date().getFullYear()}-04-18`, type: 'holiday', description: 'Good Friday service',   participants: [], groupIds: [] },
-  { id: 'h3', title: 'Easter Sunday',  date: `${new Date().getFullYear()}-04-20`, type: 'holiday', description: 'Easter Sunday service', participants: [], groupIds: [] },
-  { id: 'h4', title: 'Pentecost',      date: `${new Date().getFullYear()}-06-08`, type: 'holiday', description: 'Pentecost Sunday',      participants: [], groupIds: [] },
+  // 2025
+  { id: 'h-2025-01', title: "New Year's Day",          date: '2025-01-01', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-02', title: 'Family Day',               date: '2025-02-17', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-03', title: 'Good Friday',              date: '2025-04-18', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-04', title: 'Easter Monday',            date: '2025-04-21', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-05', title: 'Victoria Day',             date: '2025-05-19', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-06', title: 'Canada Day',               date: '2025-07-01', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-07', title: 'Heritage Day',             date: '2025-08-04', type: 'holiday', description: 'Alberta civic holiday',     participants: [], groupIds: [] },
+  { id: 'h-2025-08', title: 'Labour Day',               date: '2025-09-01', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-09', title: 'National Day for Truth and Reconciliation', date: '2025-09-30', type: 'holiday', description: 'Federal statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-10', title: 'Thanksgiving Day',         date: '2025-10-13', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-11', title: 'Remembrance Day',          date: '2025-11-11', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-12', title: 'Christmas Day',            date: '2025-12-25', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2025-13', title: 'Boxing Day',               date: '2025-12-26', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  // 2026
+  { id: 'h-2026-01', title: "New Year's Day",           date: '2026-01-01', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-02', title: 'Family Day',               date: '2026-02-16', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-03', title: 'Good Friday',              date: '2026-04-03', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-04', title: 'Easter Monday',            date: '2026-04-06', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-05', title: 'Victoria Day',             date: '2026-05-18', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-06', title: 'Canada Day',               date: '2026-07-01', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-07', title: 'Heritage Day',             date: '2026-08-03', type: 'holiday', description: 'Alberta civic holiday',     participants: [], groupIds: [] },
+  { id: 'h-2026-08', title: 'Labour Day',               date: '2026-09-07', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-09', title: 'National Day for Truth and Reconciliation', date: '2026-09-30', type: 'holiday', description: 'Federal statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-10', title: 'Thanksgiving Day',         date: '2026-10-12', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-11', title: 'Remembrance Day',          date: '2026-11-11', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-12', title: 'Christmas Day',            date: '2026-12-25', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
+  { id: 'h-2026-13', title: 'Boxing Day',               date: '2026-12-26', type: 'holiday', description: 'Alberta statutory holiday', participants: [], groupIds: [] },
 ];
 
 export function generateSabbaths() {
   const sabbaths = [];
   const now = new Date();
   const year = now.getFullYear();
-  // Find first Saturday of the year
   let d = new Date(year, 0, 1);
   while (d.getDay() !== 6) d.setDate(d.getDate() + 1);
   let i = 1;
   while (d.getFullYear() === year) {
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const dateStr = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
     sabbaths.push({
-      id: `sab-${i++}`,
+      id: 'sab-' + i++,
       title: 'Sabbath Gathering',
       date: dateStr,
       type: 'sabbath',
