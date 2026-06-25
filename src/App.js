@@ -58,26 +58,25 @@ function LoginModal({ onLogin, onClose }) {
 }
 
 // ── Shuffle Confirm Modal ─────────────────────────────────────────────────────
-function ShuffleConfirmModal({ groups, participants, events, onConfirm, onClose }) {
-  const today = todayStr();
+function ShuffleConfirmModal({ groups, participants, onConfirm, onClose }) {
   const activeGroups = groups.filter(g => (g.memberIds || []).length > 0);
-  const upcomingSabbaths = events.filter(e => e.type === 'sabbath' && e.date >= today);
   const totalMembers = activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0);
+  const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
+  const perGroup = groups.length > 0 ? Math.ceil(allMemberIds.length / groups.length) : 0;
 
   return (
-    <Modal title="🔀 Confirm Shuffle" onClose={onClose}>
+    <Modal title="🔀 Reshuffle Groups" onClose={onClose}>
       <div style={{ background:'#fffbeb', border:'1.5px solid #fde68a', borderRadius:10, padding:'12px 14px', marginBottom:18 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:6 }}>⚠️ This will reassign all groups</div>
+        <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:4 }}>⚠️ This will reassign members across groups</div>
         <div style={{ fontSize:13, color:'#78350f' }}>
-          Each group's members will be reshuffled. Existing assignments on upcoming Sabbaths will be replaced.
+          All members from all groups will be pooled together and randomly redistributed evenly. Events are not affected.
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:18 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
         {[
-          { label:'Groups', value: activeGroups.length },
-          { label:'Total Members', value: totalMembers },
-          { label:'Sabbaths', value: upcomingSabbaths.length },
+          { label:'Groups', value: groups.length },
+          { label:'Members to Shuffle', value: totalMembers },
         ].map(({ label, value }) => (
           <div key={label} style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
             <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{value}</div>
@@ -86,42 +85,25 @@ function ShuffleConfirmModal({ groups, participants, events, onConfirm, onClose 
         ))}
       </div>
 
-      {activeGroups.length === 0 && (
-        <div style={{ color:'#dc2626', fontSize:13, marginBottom:16, textAlign:'center' }}>
-          No groups with members found. Add members to groups first.
-        </div>
-      )}
-
-      {activeGroups.length > 0 && (
+      {groups.length > 0 && (
         <div style={{ marginBottom:18 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', marginBottom:8, letterSpacing:'0.05em' }}>GROUPS TO SHUFFLE</div>
-          {activeGroups.map(g => {
-            const memberCount = (g.memberIds || []).length;
-            const perSabbath = upcomingSabbaths.length > 0
-              ? Math.ceil(memberCount / upcomingSabbaths.length)
-              : memberCount;
-            return (
-              <div key={g.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #f1f5f9' }}>
-                <div style={{ width:32, height:32, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>👥</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{g.name}</div>
-                  <div style={{ fontSize:11, color:'#94a3b8' }}>{memberCount} members · ~{perSabbath} per Sabbath</div>
-                </div>
+          <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', marginBottom:8, letterSpacing:'0.05em' }}>EXPECTED RESULT</div>
+          {groups.map(g => (
+            <div key={g.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #f1f5f9' }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>👥</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{g.name}</div>
+                <div style={{ fontSize:11, color:'#94a3b8' }}>~{perGroup} members after shuffle</div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
       <div style={{ display:'flex', gap:8 }}>
         <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
-        <Btn
-          variant="primary"
-          onClick={onConfirm}
-          style={{ flex:1, justifyContent:'center', opacity: activeGroups.length === 0 ? 0.5 : 1 }}
-          disabled={activeGroups.length === 0}
-        >
-          🔀 Shuffle Now
+        <Btn variant="primary" onClick={onConfirm} style={{ flex:1, justifyContent:'center' }}>
+          🔀 Reshuffle Now
         </Btn>
       </div>
     </Modal>
