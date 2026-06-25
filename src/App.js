@@ -253,7 +253,7 @@ const confirmShuffle = useCallback(() => {
       participants: activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0),
     }]);
     setShowShuffleConfirm(false);
-    showToast(`✅ ${allMemberIds.length} members reshuffled across ${groups.length} groups!`, 'success');
+    showToast('Members reshuffled successfully!', 'success');
   }, [groups, showToast]);
 
   // ── Export ──────────────────────────────────────────────────────────────────
