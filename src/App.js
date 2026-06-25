@@ -1,9 +1,7 @@
-// App.js
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';
-import { storageGet, storageSet } from './storage';
 import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, DEFAULT_GROUPS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
+import { listenToAll, saveEvents, saveParticipants, saveGroups, saveShuffleHistory, saveAll } from './firestore';
 import { Toast, Modal, Field, inputStyle, Btn } from './components/UI';
 import CalendarView from './components/CalendarView';
 import ParticipantsView from './components/ParticipantsView';
@@ -19,15 +17,14 @@ function LoginModal({ onLogin, onClose }) {
     if (user === ADMIN_CREDENTIALS.username && pass === ADMIN_CREDENTIALS.password) {
       onLogin();
     } else {
-      setError('Invalid credentials. Default: admin / church2024');
+      setError('Invalid credentials.');
     }
   };
 
   return (
     <Modal title="Admin Login" onClose={onClose}>
-     
       <Field label="Username">
-        <input style={inputStyle} value={user} onChange={e => setUser(e.target.value)} placeholder="admin" autoComplete="username"/>
+        <input style={inputStyle} value={user} onChange={e => setUser(e.target.value)} placeholder="Username" autoComplete="username"/>
       </Field>
       <Field label="Password">
         <div style={{ position:'relative' }}>
@@ -48,24 +45,24 @@ function LoginModal({ onLogin, onClose }) {
         </div>
       </Field>
       {error && <div style={{ color:'#dc2626', fontSize:13, marginBottom:12 }}>{error}</div>}
-      <Btn variant="primary" onClick={submit} style={{ width:'100%', justifyContent:'center' }}>Sign In</Btn>
+      <Btn variant="primary" onClick={submit} style={{ width:'100%', justifyContent:'center', marginTop:4 }}>Sign In</Btn>
     </Modal>
   );
 }
 
 function ShuffleConfirmModal({ groups, onConfirm, onClose }) {
   const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
-  const perGroup = groups.length > 0 ? Math.ceil(allMemberIds.length / groups.length) : 0;
+  const perGroup = groups.length > 0 ? Math.floor(allMemberIds.length / groups.length) : 0;
+  const extras = groups.length > 0 ? allMemberIds.length % groups.length : 0;
 
   return (
     <Modal title="Reshuffle Groups" onClose={onClose}>
       <div style={{ background:'#fffbeb', border:'1.5px solid #fde68a', borderRadius:10, padding:'12px 14px', marginBottom:18 }}>
         <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:4 }}>This will reassign members across groups</div>
         <div style={{ fontSize:13, color:'#78350f' }}>
-          All members will be pooled and randomly redistributed evenly. Events are not affected.
+          All members will be pooled and randomly redistributed evenly. Past events will be frozen first.
         </div>
       </div>
-
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
         <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
           <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{groups.length}</div>
@@ -76,27 +73,23 @@ function ShuffleConfirmModal({ groups, onConfirm, onClose }) {
           <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>Members to Shuffle</div>
         </div>
       </div>
-
       {groups.length > 0 && (
         <div style={{ marginBottom:18 }}>
           <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', marginBottom:8, letterSpacing:'0.05em' }}>EXPECTED RESULT</div>
-          {groups.map(g => (
+          {groups.map((g, i) => (
             <div key={g.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #f1f5f9' }}>
               <div style={{ width:32, height:32, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>👥</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{g.name}</div>
-                <div style={{ fontSize:11, color:'#94a3b8' }}>~{perGroup} members after shuffle</div>
+                <div style={{ fontSize:11, color:'#94a3b8' }}>{i < extras ? perGroup + 1 : perGroup} members after shuffle</div>
               </div>
             </div>
           ))}
         </div>
       )}
-
       <div style={{ display:'flex', gap:8 }}>
         <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
-        <Btn variant="primary" onClick={onConfirm} style={{ flex:1, justifyContent:'center' }}>
-          Reshuffle Now
-        </Btn>
+        <Btn variant="primary" onClick={onConfirm} style={{ flex:1, justifyContent:'center' }}>Reshuffle Now</Btn>
       </div>
     </Modal>
   );
@@ -112,86 +105,138 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showShuffleConfirm, setShowShuffleConfirm] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState(null);
+  const isFirstLoad = useRef(true);
 
   const showToast = useCallback((message, type) => {
     setToast({ message, type: type || 'info' });
   }, []);
 
   useEffect(() => {
-    const savedEvents       = storageGet('church-events');
-    const savedParticipants = storageGet('church-participants');
-    const savedGroups       = storageGet('church-groups');
-    const savedHistory      = storageGet('church-shuffle-history');
-
-    if (savedEvents) {
-      setEvents(savedEvents);
-    } else {
-      const base = [...DEFAULT_HOLIDAYS, ...generateSabbaths()];
-      setEvents(base);
-      storageSet('church-events', base);
-    }
-
-    if (savedParticipants) {
-      setParticipants(savedParticipants);
-    } else {
-      setParticipants(DEFAULT_PARTICIPANTS);
-      storageSet('church-participants', DEFAULT_PARTICIPANTS);
-    }
-
-    if (savedGroups) {
-      setGroups(savedGroups);
-    } else {
-      setGroups(DEFAULT_GROUPS);
-      storageSet('church-groups', DEFAULT_GROUPS);
-    }
-
-    if (savedHistory) setShuffleHistory(savedHistory);
-    setLoaded(true);
+    const unsub = listenToAll(function(data) {
+      if (isFirstLoad.current && data.events.length === 0) {
+        const base = [...DEFAULT_HOLIDAYS, ...generateSabbaths()];
+        const initialData = {
+          events:         base,
+          participants:   DEFAULT_PARTICIPANTS,
+          groups:         DEFAULT_GROUPS,
+          shuffleHistory: [],
+        };
+        saveAll(initialData);
+        setEvents(base);
+        setParticipants(DEFAULT_PARTICIPANTS);
+        setGroups(DEFAULT_GROUPS);
+        setShuffleHistory([]);
+      } else {
+        setEvents(data.events);
+        setParticipants(data.participants);
+        setGroups(data.groups);
+        setShuffleHistory(data.shuffleHistory);
+      }
+      isFirstLoad.current = false;
+      setLoaded(true);
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => { if (loaded) storageSet('church-events', events); }, [events, loaded]);
-  useEffect(() => { if (loaded) storageSet('church-participants', participants); }, [participants, loaded]);
-  useEffect(() => { if (loaded) storageSet('church-groups', groups); }, [groups, loaded]);
-  useEffect(() => { if (loaded) storageSet('church-shuffle-history', shuffleHistory); }, [shuffleHistory, loaded]);
-
-  const addEvent    = useCallback(function(ev) { setEvents(function(es) { return [...es, ev]; }); }, []);
-  const editEvent   = useCallback(function(ev) { setEvents(function(es) { return es.map(function(e) { return e.id === ev.id ? ev : e; }); }); }, []);
-  const deleteEvent = useCallback(function(id) { setEvents(function(es) { return es.filter(function(e) { return e.id !== id; }); }); }, []);
-
-  const addParticipant    = useCallback(function(p) { setParticipants(function(ps) { return [...ps, p]; }); }, []);
-  const editParticipant   = useCallback(function(p) { setParticipants(function(ps) { return ps.map(function(x) { return x.id === p.id ? p : x; }); }); }, []);
-  const deleteParticipant = useCallback(function(id) {
-    setParticipants(function(ps) { return ps.filter(function(p) { return p.id !== id; }); });
-    setEvents(function(es) { return es.map(function(e) { return { ...e, participants: (e.participants || []).filter(function(pid) { return pid !== id; }) }; }); });
-    setGroups(function(gs) { return gs.map(function(g) { return { ...g, memberIds: (g.memberIds || []).filter(function(mid) { return mid !== id; }) }; }); });
+  const addEvent = useCallback(ev => {
+    setEvents(es => {
+      const next = [...es, ev];
+      saveEvents(next);
+      return next;
+    });
   }, []);
 
-  const addGroup    = useCallback(function(g) { setGroups(function(gs) { return [...gs, g]; }); }, []);
-  const editGroup   = useCallback(function(g) { setGroups(function(gs) { return gs.map(function(x) { return x.id === g.id ? g : x; }); }); }, []);
-  const deleteGroup = useCallback(function(id) {
-    setGroups(function(gs) { return gs.filter(function(g) { return g.id !== id; }); });
-    setEvents(function(es) { return es.map(function(e) { return { ...e, groupIds: (e.groupIds || []).filter(function(gid) { return gid !== id; }) }; }); });
+  const editEvent = useCallback(ev => {
+    setEvents(es => {
+      const next = es.map(e => e.id === ev.id ? ev : e);
+      saveEvents(next);
+      return next;
+    });
   }, []);
 
-  const doShuffle = useCallback(function() {
-    setShowShuffleConfirm(true);
+  const deleteEvent = useCallback(id => {
+    setEvents(es => {
+      const next = es.filter(e => e.id !== id);
+      saveEvents(next);
+      return next;
+    });
   }, []);
 
- const confirmShuffle = useCallback(function() {
+  const addParticipant = useCallback(p => {
+    setParticipants(ps => {
+      const next = [...ps, p];
+      saveParticipants(next);
+      return next;
+    });
+  }, []);
+
+  const editParticipant = useCallback(p => {
+    setParticipants(ps => {
+      const next = ps.map(x => x.id === p.id ? p : x);
+      saveParticipants(next);
+      return next;
+    });
+  }, []);
+
+  const deleteParticipant = useCallback(id => {
+    setParticipants(ps => {
+      const next = ps.filter(p => p.id !== id);
+      saveParticipants(next);
+      return next;
+    });
+    setEvents(es => {
+      const next = es.map(e => ({ ...e, participants: (e.participants || []).filter(pid => pid !== id) }));
+      saveEvents(next);
+      return next;
+    });
+    setGroups(gs => {
+      const next = gs.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(mid => mid !== id) }));
+      saveGroups(next);
+      return next;
+    });
+  }, []);
+
+  const addGroup = useCallback(g => {
+    setGroups(gs => {
+      const next = [...gs, g];
+      saveGroups(next);
+      return next;
+    });
+  }, []);
+
+  const editGroup = useCallback(g => {
+    setGroups(gs => {
+      const next = gs.map(x => x.id === g.id ? g : x);
+      saveGroups(next);
+      return next;
+    });
+  }, []);
+
+  const deleteGroup = useCallback(id => {
+    setGroups(gs => {
+      const next = gs.filter(g => g.id !== id);
+      saveGroups(next);
+      return next;
+    });
+    setEvents(es => {
+      const next = es.map(e => ({ ...e, groupIds: (e.groupIds || []).filter(gid => gid !== id) }));
+      saveEvents(next);
+      return next;
+    });
+  }, []);
+
+  const doShuffle = useCallback(() => { setShowShuffleConfirm(true); }, []);
+
+  const confirmShuffle = useCallback(() => {
     if (groups.length === 0) {
       showToast('No groups to shuffle', 'error');
       setShowShuffleConfirm(false);
       return;
     }
 
-    var allMemberIds = [];
-    var seen = {};
-    groups.forEach(function(g) {
-      (g.memberIds || []).forEach(function(id) {
-        if (!seen[id]) { seen[id] = true; allMemberIds.push(id); }
-      });
-    });
+    const allMemberIds = [...new Set(groups.flatMap(g => g.memberIds || []))];
 
     if (allMemberIds.length === 0) {
       showToast('No members in any group to shuffle', 'error');
@@ -199,88 +244,80 @@ export default function App() {
       return;
     }
 
-    var todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
 
-    // Freeze past events before reshuffling
-    setEvents(function(es) {
-      return es.map(function(e) {
-        if (e.date >= todayStr) return e;
-        if (!e.groupIds || e.groupIds.length === 0) return e;
-        var snapshotIds = [];
-        var seenIds = {};
-        (e.groupIds || []).forEach(function(gid) {
-          var grp = groups.find(function(g) { return g.id === gid; });
-          if (grp) {
-            (grp.memberIds || []).forEach(function(mid) {
-              if (!seenIds[mid]) { seenIds[mid] = true; snapshotIds.push(mid); }
-            });
-          }
-        });
-        (e.participants || []).forEach(function(pid) {
-          if (!seenIds[pid]) { seenIds[pid] = true; snapshotIds.push(pid); }
-        });
-        return { ...e, participants: snapshotIds, groupIds: [] };
+    const frozenEvents = events.map(e => {
+      if (e.date >= todayStr) return e;
+      if (!e.groupIds || e.groupIds.length === 0) return e;
+      const seenIds = {};
+      const snapshotIds = [];
+      (e.groupIds || []).forEach(gid => {
+        const grp = groups.find(g => g.id === gid);
+        if (grp) {
+          (grp.memberIds || []).forEach(mid => {
+            if (!seenIds[mid]) { seenIds[mid] = true; snapshotIds.push(mid); }
+          });
+        }
       });
+      (e.participants || []).forEach(pid => {
+        if (!seenIds[pid]) { seenIds[pid] = true; snapshotIds.push(pid); }
+      });
+      return { ...e, participants: snapshotIds, groupIds: [] };
     });
 
-    // Fisher-Yates shuffle the pool
-    var pool = allMemberIds.slice();
-    for (var i = pool.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var temp = pool[i];
-      pool[i] = pool[j];
-      pool[j] = temp;
+    const pool = [...allMemberIds];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
-    // Round-robin distribution — members differ by at most 1
-    var buckets = groups.map(function() { return []; });
-    pool.forEach(function(id, idx) {
-      buckets[idx % groups.length].push(id);
-    });
+    const buckets = groups.map(() => []);
+    pool.forEach((id, idx) => { buckets[idx % groups.length].push(id); });
+    const updatedGroups = groups.map((g, i) => ({ ...g, memberIds: buckets[i] }));
 
-    var updatedGroups = groups.map(function(g, i) {
-      return { ...g, memberIds: buckets[i] };
-    });
+    const newHistory = [...shuffleHistory, {
+      date: new Date().toISOString(),
+      groups: groups.length,
+      participants: allMemberIds.length,
+    }];
 
+    setSyncing(true);
+    saveAll({
+      events: frozenEvents,
+      participants,
+      groups: updatedGroups,
+      shuffleHistory: newHistory,
+    }).then(() => setSyncing(false));
+
+    setEvents(frozenEvents);
     setGroups(updatedGroups);
-
-    setShuffleHistory(function(h) {
-      return [...h, {
-        date: new Date().toISOString(),
-        groups: groups.length,
-        participants: allMemberIds.length,
-      }];
-    });
-
+    setShuffleHistory(newHistory);
     setShowShuffleConfirm(false);
-    showToast('Members reshuffled! Past events have been frozen.', 'success');
-  }, [groups, showToast]);
+    showToast('Members reshuffled! Past events frozen.', 'success');
+  }, [groups, events, participants, shuffleHistory, showToast]);
 
-  const doExport = useCallback(function(format) {
-    var content, type, filename;
+  const doExport = useCallback((format) => {
+    let content, type, filename;
     if (format === 'csv') {
-      var rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
-      events.forEach(function(e) {
-        var names = (e.participants || []).map(function(pid) { var p = participants.find(function(p) { return p.id === pid; }); return p ? p.name : ''; }).filter(Boolean).join('; ');
-        var grpNames = (e.groupIds || []).map(function(gid) { var g = groups.find(function(g) { return g.id === gid; }); return g ? g.name : ''; }).filter(Boolean).join('; ');
+      const rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
+      events.forEach(e => {
+        const names = (e.participants || []).map(pid => { const p = participants.find(p => p.id === pid); return p ? p.name : ''; }).filter(Boolean).join('; ');
+        const grpNames = (e.groupIds || []).map(gid => { const g = groups.find(g => g.id === gid); return g ? g.name : ''; }).filter(Boolean).join('; ');
         rows.push([e.title, e.date, e.time || '', EVENT_TYPES[e.type] ? EVENT_TYPES[e.type].label : e.type, e.description || '', names, grpNames]);
       });
-      content = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
-      type = 'text/csv';
-      filename = 'church-calendar.csv';
+      content = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+      type = 'text/csv'; filename = 'church-calendar.csv';
     } else {
-      content = JSON.stringify({ events: events, participants: participants, groups: groups, shuffleHistory: shuffleHistory }, null, 2);
-      type = 'application/json';
-      filename = 'church-calendar.json';
+      content = JSON.stringify({ events, participants, groups, shuffleHistory }, null, 2);
+      type = 'application/json'; filename = 'church-calendar.json';
     }
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type: type }));
-    a.download = filename;
-    a.click();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = filename; a.click();
     showToast(format.toUpperCase() + ' exported!', 'success');
   }, [events, participants, groups, shuffleHistory, showToast]);
 
-  var tabs = [
+  const tabs = [
     { id:'calendar',     label:'Calendar',  icon:Calendar },
     { id:'participants', label:'Members',   icon:Users },
     { id:'admin',        label:'Dashboard', icon:Settings },
@@ -290,7 +327,7 @@ export default function App() {
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f8fafc' }}>
       <div style={{ textAlign:'center' }}>
         <div style={{ width:44, height:44, margin:'0 auto 16px', border:'3px solid #4f46e5', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-        <p style={{ color:'#94a3b8', fontSize:14, margin:0 }}>Loading church calendar...</p>
+        <p style={{ color:'#94a3b8', fontSize:14, margin:0 }}>Connecting to church database...</p>
       </div>
     </div>
   );
@@ -309,24 +346,27 @@ export default function App() {
             </div>
           </div>
           <nav style={{ display:'flex', gap:2 }}>
-            {tabs.map(function(t) {
-              return (
-                <button key={t.id} onClick={function() { setTab(t.id); }} style={{
-                  display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
-                  fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
-                }}>
-                  <t.icon size={15}/>
-                  <span className="nav-label">{t.label}</span>
-                </button>
-              );
-            })}
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{
+                display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
+                fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
+              }}>
+                <t.icon size={15}/>
+                <span className="nav-label">{t.label}</span>
+              </button>
+            ))}
           </nav>
-          <button onClick={function() { if (isAdmin) { setIsAdmin(false); } else { setShowLogin(true); } }} style={{
-            display:'flex', alignItems:'center', gap:5, padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
-            borderRadius:9, background:'transparent', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
-          }}>
-            {isAdmin ? <><LogOut size={13}/> Exit Admin</> : <><LogIn size={13}/> Admin</>}
-          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {syncing && (
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#fbbf24', animation:'pulse 1s infinite' }} title="Syncing..."/>
+            )}
+            <button onClick={() => isAdmin ? setIsAdmin(false) : setShowLogin(true)} style={{
+              display:'flex', alignItems:'center', gap:5, padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
+              borderRadius:9, background:'transparent', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
+            }}>
+              {isAdmin ? <><LogOut size={13}/> Exit Admin</> : <><LogIn size={13}/> Admin</>}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -334,7 +374,7 @@ export default function App() {
         <div style={{ background:'#fef3c7', borderBottom:'1.5px solid #fde68a', padding:'9px 20px' }}>
           <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#92400e' }}>
             <Shield size={14}/>
-            <strong>Admin Mode</strong> — You can add, edit, and delete events; manage members and groups; and trigger shuffles.
+            <strong>Admin Mode</strong> — Changes sync live to all devices instantly.
           </div>
         </div>
       )}
@@ -353,7 +393,7 @@ export default function App() {
             onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
             onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
             onShuffle={doShuffle} shuffleHistory={shuffleHistory}
-            onClearHistory={function() { setShuffleHistory([]); }}
+            onClearHistory={() => { setShuffleHistory([]); saveShuffleHistory([]); }}
             showToast={showToast}
           />
         )}
@@ -367,8 +407,8 @@ export default function App() {
 
       {showLogin && (
         <LoginModal
-          onLogin={function() { setIsAdmin(true); setShowLogin(false); showToast('Welcome, Admin!', 'success'); }}
-          onClose={function() { setShowLogin(false); }}
+          onLogin={() => { setIsAdmin(true); setShowLogin(false); showToast('Welcome, Admin!', 'success'); }}
+          onClose={() => setShowLogin(false)}
         />
       )}
 
@@ -376,14 +416,15 @@ export default function App() {
         <ShuffleConfirmModal
           groups={groups}
           onConfirm={confirmShuffle}
-          onClose={function() { setShowShuffleConfirm(false); }}
+          onClose={() => setShowShuffleConfirm(false)}
         />
       )}
 
-      {toast && <Toast {...toast} onClose={function() { setToast(null); }}/>}
+      {toast && <Toast {...toast} onClose={() => setToast(null)}/>}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
         @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
         @media (max-width: 480px) { .nav-label { display: none; } }
       `}</style>
