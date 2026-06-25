@@ -178,7 +178,7 @@ export default function App() {
     setShowShuffleConfirm(true);
   }, []);
 
-  const confirmShuffle = useCallback(function() {
+ const confirmShuffle = useCallback(function() {
     if (groups.length === 0) {
       showToast('No groups to shuffle', 'error');
       setShowShuffleConfirm(false);
@@ -201,14 +201,11 @@ export default function App() {
 
     var todayStr = new Date().toISOString().slice(0, 10);
 
-    // BEFORE reshuffling: snapshot current group members onto all past events
-    // that have groupIds assigned, so they are frozen and won't change
+    // Freeze past events before reshuffling
     setEvents(function(es) {
       return es.map(function(e) {
         if (e.date >= todayStr) return e;
         if (!e.groupIds || e.groupIds.length === 0) return e;
-
-        // Collect all member IDs from assigned groups RIGHT NOW (before shuffle)
         var snapshotIds = [];
         var seenIds = {};
         (e.groupIds || []).forEach(function(gid) {
@@ -219,23 +216,30 @@ export default function App() {
             });
           }
         });
-        // Also keep any individually assigned participants
         (e.participants || []).forEach(function(pid) {
           if (!seenIds[pid]) { seenIds[pid] = true; snapshotIds.push(pid); }
         });
-
-        // Store snapshot as direct participants and clear groupIds
-        // so past events no longer depend on live group membership
         return { ...e, participants: snapshotIds, groupIds: [] };
       });
     });
 
-    // NOW reshuffle the groups
-    var pool = allMemberIds.slice().sort(function() { return Math.random() - 0.5; });
-    var perGroup = Math.ceil(pool.length / groups.length);
+    // Fisher-Yates shuffle the pool
+    var pool = allMemberIds.slice();
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = pool[i];
+      pool[i] = pool[j];
+      pool[j] = temp;
+    }
+
+    // Round-robin distribution — members differ by at most 1
+    var buckets = groups.map(function() { return []; });
+    pool.forEach(function(id, idx) {
+      buckets[idx % groups.length].push(id);
+    });
 
     var updatedGroups = groups.map(function(g, i) {
-      return { ...g, memberIds: pool.slice(i * perGroup, (i + 1) * perGroup) };
+      return { ...g, memberIds: buckets[i] };
     });
 
     setGroups(updatedGroups);
