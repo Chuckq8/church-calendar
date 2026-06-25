@@ -1,31 +1,32 @@
 // components/CalendarView.js
+
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Search, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { EVENT_TYPES } from '../constants';
 import { DAYS, MONTHS } from '../utils';
 import { getDaysInMonth, getFirstDayOfMonth, todayStr } from '../utils';
-import { Modal, Btn, EmptyState } from './UI';
+import { Modal, Btn } from './UI';
 import EventForm from './EventForm';
 import EventDetail from './EventDetail';
 
 export default function CalendarView({ events, participants, isAdmin, onAddEvent, onEditEvent, onDeleteEvent, showToast }) {
   const today = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
+  const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [editingEvent,  setEditingEvent]  = useState(null);
-  const [addingEvent,   setAddingEvent]   = useState(false);
-  const [filterType,    setFilterType]    = useState('all');
-  const [search,        setSearch]        = useState('');
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [filterType, setFilterType] = useState('all');
+  const [search, setSearch] = useState('');
 
   const daysInMonth = getDaysInMonth(year, month);
-  const firstDay    = getFirstDayOfMonth(year, month);
-  const monthStr    = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const todayDate   = todayStr();
+  const firstDay = getFirstDayOfMonth(year, month);
+  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const todayDate = todayStr();
 
   const monthEvents = useMemo(() => events.filter(e => {
-    const matchMonth  = e.date?.startsWith(monthStr);
-    const matchType   = filterType === 'all' || e.type === filterType;
+    const matchMonth = e.date?.startsWith(monthStr);
+    const matchType = filterType === 'all' || e.type === filterType;
     const matchSearch = !search || e.title.toLowerCase().includes(search.toLowerCase());
     return matchMonth && matchType && matchSearch;
   }), [events, monthStr, filterType, search]);
@@ -41,7 +42,7 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y-1); } else setMonth(m => m-1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y+1); } else setMonth(m => m+1); };
-  const goToday   = () => { setYear(today.getFullYear()); setMonth(today.getMonth()); };
+  const goToday = () => { setYear(today.getFullYear()); setMonth(today.getMonth()); };
 
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -61,7 +62,6 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
             Today
           </button>
         </div>
-
         <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:9, padding:'7px 12px' }}>
           <Search size={14} color="#94a3b8"/>
           <input
@@ -70,7 +70,6 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
             style={{ border:'none', background:'none', outline:'none', fontSize:14, color:'#1e293b', width:150 }}
           />
         </div>
-
         {isAdmin && (
           <Btn variant="primary" onClick={() => setAddingEvent(true)}>
             <Plus size={16}/> Add Event
@@ -85,7 +84,7 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
             padding:'4px 14px', borderRadius:20, border:'none', cursor:'pointer',
             fontSize:12, fontWeight:700,
             background: filterType === k ? color : '#f1f5f9',
-            color:      filterType === k ? '#fff' : '#64748b',
+            color: filterType === k ? '#fff' : '#64748b',
             transition:'all 0.15s',
           }}>{label}</button>
         ))}
@@ -108,10 +107,10 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {cells.map((day, i) => {
             if (!day) return <div key={`e${i}`} style={emptyCell}/>;
-            const dateStr   = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const dayEvents = eventsByDate[dateStr] || [];
-            const isToday   = dateStr === todayDate;
-            const isSat     = new Date(year, month, day).getDay() === 6;
+            const isToday = dateStr === todayDate;
+            const isSat = new Date(year, month, day).getDay() === 6;
 
             return (
               <div key={day} style={{
@@ -127,7 +126,6 @@ export default function CalendarView({ events, participants, isAdmin, onAddEvent
                   color: isToday ? '#fff' : isSat ? '#4f46e5' : '#374151',
                   marginBottom:3,
                 }}>{day}</div>
-
                 {dayEvents.slice(0, 3).map(ev => {
                   const t = EVENT_TYPES[ev.type] || EVENT_TYPES.event;
                   return (
@@ -208,6 +206,7 @@ const navBtn = {
   display:'flex', alignItems:'center', justifyContent:'center',
   color:'#475569',
 };
+
 const emptyCell = {
   minHeight:88,
   borderRight:'1px solid #f1f5f9',
