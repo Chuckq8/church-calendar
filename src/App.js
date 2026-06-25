@@ -57,6 +57,77 @@ function LoginModal({ onLogin, onClose }) {
   );
 }
 
+// ── Shuffle Confirm Modal ─────────────────────────────────────────────────────
+function ShuffleConfirmModal({ groups, participants, events, onConfirm, onClose }) {
+  const today = todayStr();
+  const activeGroups = groups.filter(g => (g.memberIds || []).length > 0);
+  const upcomingSabbaths = events.filter(e => e.type === 'sabbath' && e.date >= today);
+  const totalMembers = activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0);
+
+  return (
+    <Modal title="🔀 Confirm Shuffle" onClose={onClose}>
+      <div style={{ background:'#fffbeb', border:'1.5px solid #fde68a', borderRadius:10, padding:'12px 14px', marginBottom:18 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:'#92400e', marginBottom:6 }}>⚠️ This will reassign all groups</div>
+        <div style={{ fontSize:13, color:'#78350f' }}>
+          Each group's members will be reshuffled. Existing assignments on upcoming Sabbaths will be replaced.
+        </div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:18 }}>
+        {[
+          { label:'Groups', value: activeGroups.length },
+          { label:'Total Members', value: totalMembers },
+          { label:'Sabbaths', value: upcomingSabbaths.length },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background:'#f8fafc', borderRadius:10, padding:'12px', textAlign:'center', border:'1.5px solid #e2e8f0' }}>
+            <div style={{ fontSize:22, fontWeight:800, color:'#4f46e5' }}>{value}</div>
+            <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {activeGroups.length === 0 && (
+        <div style={{ color:'#dc2626', fontSize:13, marginBottom:16, textAlign:'center' }}>
+          No groups with members found. Add members to groups first.
+        </div>
+      )}
+
+      {activeGroups.length > 0 && (
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', marginBottom:8, letterSpacing:'0.05em' }}>GROUPS TO SHUFFLE</div>
+          {activeGroups.map(g => {
+            const memberCount = (g.memberIds || []).length;
+            const perSabbath = upcomingSabbaths.length > 0
+              ? Math.ceil(memberCount / upcomingSabbaths.length)
+              : memberCount;
+            return (
+              <div key={g.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #f1f5f9' }}>
+                <div style={{ width:32, height:32, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>👥</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{g.name}</div>
+                  <div style={{ fontSize:11, color:'#94a3b8' }}>{memberCount} members · ~{perSabbath} per Sabbath</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:8 }}>
+        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
+        <Btn
+          variant="primary"
+          onClick={onConfirm}
+          style={{ flex:1, justifyContent:'center', opacity: activeGroups.length === 0 ? 0.5 : 1 }}
+          disabled={activeGroups.length === 0}
+        >
+          🔀 Shuffle Now
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState('calendar');
   const [events, setEvents] = useState([]);
@@ -65,6 +136,7 @@ export default function App() {
   const [shuffleHistory, setShuffleHistory] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showShuffleConfirm, setShowShuffleConfirm] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -126,23 +198,68 @@ export default function App() {
     setEvents(es => es.map(e => ({ ...e, groupIds: (e.groupIds || []).filter(gid => gid !== id) })));
   }, []);
 
+  // ── Shuffle ─────────────────────────────────────────────────────────────────
   const doShuffle = useCallback(() => {
+    setShowShuffleConfirm(true);
+  }, []);
+
+  const confirmShuffle = useCallback(() => {
     const today = todayStr();
-    const active = participants.filter(p => p.isActive);
-    if (!active.length) { showToast('No active members to shuffle', 'error'); return; }
+    const activeGroups = groups.filter(g => (g.memberIds || []).length > 0);
+
+    if (activeGroups.length === 0) {
+      showToast('No groups with members to shuffle', 'error');
+      setShowShuffleConfirm(false);
+      return;
+    }
+
     const sabbaths = events
       .filter(e => e.type === 'sabbath' && e.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date));
-    if (!sabbaths.length) { showToast('No upcoming Sabbath gatherings found', 'error'); return; }
-    const perEvent = Math.min(active.length, 5);
-    const updated = sabbaths.map(sab => ({
-      ...sab,
-      participants: fisherYates(active).slice(0, perEvent).map(p => p.id),
-    }));
-    setEvents(es => es.map(e => updated.find(s => s.id === e.id) || e));
-    setShuffleHistory(h => [...h, { date: today, count: sabbaths.length, participants: active.length }]);
-  }, [events, participants, showToast]);
 
+    if (!sabbaths.length) {
+      showToast('No upcoming Sabbath gatherings found', 'error');
+      setShowShuffleConfirm(false);
+      return;
+    }
+
+    // For each group: shuffle its members then distribute them evenly
+    // across sabbaths using a round-robin rotation so no sabbath is overloaded
+    const groupAssignments = activeGroups.map(g => {
+      const shuffledMembers = fisherYates([...(g.memberIds || [])]);
+      const perSabbath = Math.ceil(shuffledMembers.length / sabbaths.length);
+
+      // Slice members into even chunks, one chunk per sabbath
+      const chunks = sabbaths.map((_, i) =>
+        shuffledMembers.slice(i * perSabbath, (i + 1) * perSabbath)
+      );
+
+      return { groupId: g.id, chunks };
+    });
+
+    // Build updated sabbath events — each gets a slice of each group's members
+    const updatedSabbaths = sabbaths.map((sab, i) => {
+      // Collect member IDs for this sabbath from all groups
+      const memberIdsForSabbath = groupAssignments.flatMap(ga => ga.chunks[i] || []);
+      return {
+        ...sab,
+        groupIds: activeGroups.map(g => g.id), // all groups assigned
+        participants: memberIdsForSabbath,       // the specific members for this sabbath
+      };
+    });
+
+    setEvents(es => es.map(e => updatedSabbaths.find(u => u.id === e.id) || e));
+    setShuffleHistory(h => [...h, {
+      date: today,
+      count: sabbaths.length,
+      groups: activeGroups.length,
+      participants: activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0),
+    }]);
+    setShowShuffleConfirm(false);
+    showToast(`✅ Shuffled ${activeGroups.length} groups across ${sabbaths.length} Sabbaths!`, 'success');
+  }, [events, groups, showToast]);
+
+  // ── Export ──────────────────────────────────────────────────────────────────
   const doExport = useCallback((format) => {
     let content, type, filename;
     if (format === 'csv') {
@@ -251,6 +368,17 @@ export default function App() {
           onClose={() => setShowLogin(false)}
         />
       )}
+
+      {showShuffleConfirm && (
+        <ShuffleConfirmModal
+          groups={groups}
+          participants={participants}
+          events={events}
+          onConfirm={confirmShuffle}
+          onClose={() => setShowShuffleConfirm(false)}
+        />
+      )}
+
       {toast && <Toast {...toast} onClose={() => setToast(null)}/>}
 
       <style>{`
