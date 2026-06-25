@@ -1,110 +1,116 @@
 // components/EventForm.js
+
 import { useState } from 'react';
-import { Field, inputStyle, Btn } from './UI';
 import { EVENT_TYPES } from '../constants';
-import { uid, todayStr } from '../utils';
+import { uid } from '../utils';
+import { Field, inputStyle, Btn } from './UI';
 
-export default function EventForm({ event, participants, onSave, onClose }) {
-  const [form, setForm] = useState({
-    title:        event?.title       || '',
-    date:         event?.date        || todayStr(),
-    time:         event?.time        || '',
-    type:         event?.type        || 'event',
-    description:  event?.description || '',
-    participants: event?.participants || [],
-  });
-  const [error, setError] = useState('');
+export default function EventForm({ event, participants, groups, onSave, onClose }) {
+  const [title, setTitle]       = useState(event?.title || '');
+  const [date, setDate]         = useState(event?.date || '');
+  const [time, setTime]         = useState(event?.time || '');
+  const [type, setType]         = useState(event?.type || 'event');
+  const [desc, setDesc]         = useState(event?.description || '');
+  const [selParticipants, setSP] = useState(event?.participants || []);
+  const [selGroups, setSG]       = useState(event?.groupIds || []);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const toggleP = id => set('participants',
-    form.participants.includes(id)
-      ? form.participants.filter(x => x !== id)
-      : [...form.participants, id]
-  );
+  const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
+  const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
 
-  const handleSave = () => {
-    if (!form.title.trim()) { setError('Event title is required.'); return; }
-    if (!form.date)         { setError('Date is required.'); return; }
-    onSave({ ...event, ...form, id: event?.id || uid() });
+  const save = () => {
+    if (!title.trim() || !date) return;
+    onSave({
+      id: event?.id || uid(),
+      title: title.trim(), date, time, type,
+      description: desc.trim(),
+      participants: selParticipants,
+      groupIds: selGroups,
+    });
   };
-
-  const active = participants.filter(p => p.isActive);
 
   return (
     <div>
-      {error && (
-        <div style={{ background:'#fee2e2', color:'#dc2626', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13 }}>
-          {error}
-        </div>
-      )}
-
-      <Field label="Event Title" required>
-        <input
-          style={inputStyle}
-          value={form.title}
-          onChange={e => set('title', e.target.value)}
-          placeholder="e.g. Sabbath Worship Service"
-        />
+      <Field label="Event Title *">
+        <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="Event title"/>
       </Field>
-
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        <Field label="Date" required>
-          <input type="date" style={inputStyle} value={form.date} onChange={e => set('date', e.target.value)} />
+        <Field label="Date *">
+          <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)}/>
         </Field>
         <Field label="Time">
-          <input type="time" style={inputStyle} value={form.time} onChange={e => set('time', e.target.value)} />
+          <input style={inputStyle} type="time" value={time} onChange={e => setTime(e.target.value)}/>
         </Field>
       </div>
-
-      <Field label="Event Type" required>
-        <select style={inputStyle} value={form.type} onChange={e => set('type', e.target.value)}>
+      <Field label="Event Type">
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
           {Object.entries(EVENT_TYPES).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="Description">
-        <textarea
-          style={{ ...inputStyle, minHeight:80, resize:'vertical' }}
-          value={form.description}
-          onChange={e => set('description', e.target.value)}
-          placeholder="Brief description of this event…"
-        />
-      </Field>
-
-      <Field label={`Assign Participants (${form.participants.length} selected)`}>
-        <div style={{
-          border:'1.5px solid #e2e8f0', borderRadius:8, padding:8,
-          maxHeight:200, overflowY:'auto',
-        }}>
-          {active.length === 0 ? (
-            <p style={{ color:'#94a3b8', fontSize:13, margin:'8px 4px' }}>
-              No active participants yet. Add some in the Members tab.
-            </p>
-          ) : active.map(p => (
-            <label key={p.id} style={{
-              display:'flex', alignItems:'center', gap:8,
-              padding:'6px 4px', cursor:'pointer', borderRadius:6,
-              userSelect:'none',
-            }}>
-              <input
-                type="checkbox"
-                checked={form.participants.includes(p.id)}
-                onChange={() => toggleP(p.id)}
-                style={{ width:15, height:15, accentColor:'#4f46e5' }}
-              />
-              <span style={{ fontSize:13, color:'#1e293b', fontWeight:500 }}>{p.name}</span>
-              <span style={{ fontSize:11, color:'#94a3b8', marginLeft:'auto' }}>{p.role}</span>
-            </label>
+            <button key={k} onClick={() => setType(k)} style={{
+              padding:'5px 14px', borderRadius:20, border:'1.5px solid',
+              borderColor: type === k ? v.color : '#e2e8f0',
+              background: type === k ? v.bg : '#fff',
+              color: type === k ? v.color : '#64748b',
+              fontSize:12, fontWeight:700, cursor:'pointer',
+            }}>{v.label}</button>
           ))}
         </div>
       </Field>
+      <Field label="Description">
+        <textarea style={{ ...inputStyle, height:72, resize:'vertical' }} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional notes…"/>
+      </Field>
 
-      <div style={{ display:'flex', gap:10, justifyContent:'flex-end', paddingTop:4 }}>
-        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-        <Btn variant="primary" onClick={handleSave}>
-          {event?.id ? 'Save Changes' : 'Add Event'}
+      {/* Groups */}
+      {groups && groups.length > 0 && (
+        <Field label="Assign Groups">
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {groups.map(g => (
+              <button key={g.id} onClick={() => toggleG(g.id)} style={{
+                display:'flex', alignItems:'center', gap:5,
+                padding:'5px 12px', borderRadius:20, border:'1.5px solid',
+                borderColor: selGroups.includes(g.id) ? '#4f46e5' : '#e2e8f0',
+                background: selGroups.includes(g.id) ? '#eff0ff' : '#fff',
+                color: selGroups.includes(g.id) ? '#4f46e5' : '#64748b',
+                fontSize:12, fontWeight:700, cursor:'pointer',
+              }}>
+                👥 {g.name}
+                {selGroups.includes(g.id) && <span style={{ fontSize:10 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {/* Individual participants */}
+      {participants && participants.length > 0 && (
+        <Field label="Assign Individual Members">
+          <div style={{ border:'1.5px solid #e2e8f0', borderRadius:10, maxHeight:180, overflowY:'auto' }}>
+            {participants.map(p => (
+              <div key={p.id} onClick={() => toggleP(p.id)} style={{
+                display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
+                cursor:'pointer', borderBottom:'1px solid #f8fafc',
+                background: selParticipants.includes(p.id) ? '#eff0ff' : '#fff',
+              }}>
+                <div style={{
+                  width:16, height:16, borderRadius:3, border:'2px solid',
+                  borderColor: selParticipants.includes(p.id) ? '#4f46e5' : '#cbd5e1',
+                  background: selParticipants.includes(p.id) ? '#4f46e5' : '#fff',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                }}>
+                  {selParticipants.includes(p.id) && <span style={{ color:'#fff', fontSize:10, fontWeight:800 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{p.name}</div>
+                  {p.role && <div style={{ fontSize:11, color:'#94a3b8' }}>{p.role}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      <div style={{ display:'flex', gap:8, marginTop:8 }}>
+        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
+        <Btn variant="primary" onClick={save} style={{ flex:1, justifyContent:'center' }}>
+          {event ? 'Save Changes' : 'Add Event'}
         </Btn>
       </div>
     </div>
