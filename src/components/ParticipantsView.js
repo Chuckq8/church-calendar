@@ -1,7 +1,7 @@
 // components/ParticipantsView.js
 
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Users, ChevronDown, ChevronUp, UserPlus, FolderPlus } from 'lucide-react';
+import { Search, Edit2, Trash2, Users, ChevronDown, ChevronUp, UserPlus, FolderPlus } from 'lucide-react';
 import { Modal, Btn, Field, inputStyle } from './UI';
 import { uid } from '../utils';
 
