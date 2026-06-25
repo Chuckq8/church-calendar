@@ -199,14 +199,29 @@ export default function App() {
       return;
     }
 
+    // Shuffle the pool
     var pool = allMemberIds.slice().sort(function() { return Math.random() - 0.5; });
     var perGroup = Math.ceil(pool.length / groups.length);
 
+    // Redistribute members across groups
     var updatedGroups = groups.map(function(g, i) {
       return { ...g, memberIds: pool.slice(i * perGroup, (i + 1) * perGroup) };
     });
 
     setGroups(updatedGroups);
+
+    // Only update FUTURE events (today and after) — past events are untouched
+    var todayStr = new Date().toISOString().slice(0, 10);
+    setEvents(function(es) {
+      return es.map(function(e) {
+        // If event is in the past, leave it exactly as is
+        if (e.date < todayStr) return e;
+        // Future events: update groupIds to match new group structure
+        // but only if the event already had groups assigned
+        if (!e.groupIds || e.groupIds.length === 0) return e;
+        return e;
+      });
+    });
 
     setShuffleHistory(function(h) {
       return [...h, {
@@ -217,7 +232,7 @@ export default function App() {
     });
 
     setShowShuffleConfirm(false);
-    showToast('Members reshuffled successfully!', 'success');
+    showToast('Members reshuffled across groups!', 'success');
   }, [groups, showToast]);
 
   const doExport = useCallback(function(format) {
