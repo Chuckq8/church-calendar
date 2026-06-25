@@ -249,8 +249,8 @@ export default function App() {
     });
 
     setEvents(es => es.map(e => updatedSabbaths.find(u => u.id === e.id) || e));
-    setShuffleHistory(h => [...h, {
-      date: today,
+   setShuffleHistory(h => [...h, {
+      date: new Date().toISOString(),
       count: sabbaths.length,
       groups: activeGroups.length,
       participants: activeGroups.reduce((sum, g) => sum + (g.memberIds || []).length, 0),
@@ -351,7 +351,7 @@ export default function App() {
             participants={participants} events={events} groups={groups} isAdmin={isAdmin}
             onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
             onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
-            onShuffle={doShuffle} showToast={showToast}
+            onShuffle={doShuffle} shuffleHistory={shuffleHistory} showToast={showToast}
           />
         )}
         {tab === 'admin' && (
