@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';
 import { storageGet, storageSet } from './storage';
 import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, DEFAULT_GROUPS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
-import { todayStr } from './utils';
 import { Toast, Modal, Field, inputStyle, Btn } from './components/UI';
 import CalendarView from './components/CalendarView';
 import ParticipantsView from './components/ParticipantsView';
