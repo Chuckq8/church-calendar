@@ -1,7 +1,7 @@
 // components/ParticipantsView.js
 
 import { useState } from 'react';
-import { Search, Edit2, Trash2, Users, ChevronDown, ChevronUp, UserPlus, FolderPlus } from 'lucide-react';
+import { Search, Edit2, Trash2, Users, ChevronDown, ChevronUp, UserPlus, FolderPlus, Shuffle } from 'lucide-react';
 import { Modal, Btn, Field, inputStyle } from './UI';
 import { uid } from '../utils';
 
@@ -183,20 +183,76 @@ function GroupCard({ group, participants, isAdmin, onEdit, onDelete }) {
   );
 }
 
+// ── Shuffle History ───────────────────────────────────────────────────────────
+function ShuffleHistory({ history }) {
+  if (!history || history.length === 0) return null;
+
+  return (
+    <div style={{ background:'#f8fafc', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'14px 16px', marginTop:20 }}>
+      <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', marginBottom:10 }}>SHUFFLE HISTORY</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        {[...history].reverse().slice(0, 5).map((h, i) => {
+          const date = new Date(h.date);
+          const dateLabel = date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+          const timeLabel = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+          return (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#fff', borderRadius:9, border:'1px solid #f1f5f9' }}>
+              <div style={{ width:30, height:30, borderRadius:8, background:'#eff0ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>
+                🔀
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>
+                  {h.groups} group{h.groups !== 1 ? 's' : ''} · {h.participants} member{h.participants !== 1 ? 's' : ''} shuffled
+                </div>
+                <div style={{ fontSize:11, color:'#94a3b8' }}>{dateLabel} at {timeLabel}</div>
+              </div>
+              <div style={{ fontSize:11, fontWeight:700, background:'#dcfce7', color:'#166534', borderRadius:20, padding:'2px 9px' }}>
+                {h.count} Sabbath{h.count !== 1 ? 's' : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {history.length > 5 && (
+        <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', marginTop:8 }}>
+          + {history.length - 5} older shuffles
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main View ─────────────────────────────────────────────────────────────────
 export default function ParticipantsView({
   participants, events, groups, isAdmin,
   onAdd, onEdit, onDelete,
   onAddGroup, onEditGroup, onDeleteGroup,
-  onShuffle, showToast,
+  onShuffle, shuffleHistory, showToast,
 }) {
-  const [viewTab, setViewTab]       = useState('members');
-  const [search, setSearch]         = useState('');
-  const [addingMember, setAddMember] = useState(false);
-  const [editingMember, setEditMember] = useState(null);
-  const [addingGroup, setAddGroup]   = useState(false);
-  const [editingGroup, setEditGroup] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { type, id, name }
+  const [viewTab, setViewTab]           = useState('members');
+  const [search, setSearch]             = useState('');
+  const [addingMember, setAddMember]    = useState(false);
+  const [editingMember, setEditMember]  = useState(null);
+  const [addingGroup, setAddGroup]      = useState(false);
+  const [editingGroup, setEditGroup]    = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  // Auto-distribute all active members evenly across groups
+  const autoDistribute = () => {
+    if (groups.length === 0) { showToast('Create some groups first', 'error'); return; }
+    const active = participants.filter(p => p.isActive);
+    if (active.length === 0) { showToast('No active members to distribute', 'error'); return; }
+
+    // Shuffle members randomly then split evenly across groups
+    const shuffled = [...active].sort(() => Math.random() - 0.5);
+    const perGroup = Math.ceil(shuffled.length / groups.length);
+    const updatedGroups = groups.map((g, i) => ({
+      ...g,
+      memberIds: shuffled.slice(i * perGroup, (i + 1) * perGroup).map(p => p.id),
+    }));
+    updatedGroups.forEach(g => onEditGroup(g));
+    showToast(`✅ ${active.length} members distributed evenly across ${groups.length} groups!`, 'success');
+  };
 
   const filtered = participants.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -241,14 +297,9 @@ export default function ParticipantsView({
                 style={{ border:'none', background:'none', outline:'none', fontSize:14, color:'#1e293b', flex:1 }}/>
             </div>
             {isAdmin && (
-              <>
-                <Btn variant="primary" onClick={() => setAddMember(true)}>
-                  <UserPlus size={15}/> Add Member
-                </Btn>
-                <Btn variant="ghost" onClick={onShuffle}>
-                  🔀 Shuffle Sabbaths
-                </Btn>
-              </>
+              <Btn variant="primary" onClick={() => setAddMember(true)}>
+                <UserPlus size={15}/> Add Member
+              </Btn>
             )}
           </div>
 
@@ -292,7 +343,6 @@ export default function ParticipantsView({
                       </div>
                       {p.email && <div style={{ fontSize:12, color:'#64748b', marginBottom:6 }}>✉ {p.email}</div>}
                       <div style={{ fontSize:12, color:'#94a3b8' }}>📅 {memberEvents.length} event{memberEvents.length !== 1 ? 's' : ''} assigned</div>
-                      {/* Groups this member belongs to */}
                       {groups.filter(g => (g.memberIds||[]).includes(p.id)).length > 0 && (
                         <div style={{ marginTop:8, display:'flex', flexWrap:'wrap', gap:4 }}>
                           {groups.filter(g => (g.memberIds||[]).includes(p.id)).map(g => (
@@ -311,16 +361,33 @@ export default function ParticipantsView({
       {/* ── GROUPS TAB ── */}
       {viewTab === 'groups' && (
         <div>
-          <div style={{ display:'flex', gap:10, marginBottom:18, alignItems:'center' }}>
+          {/* Toolbar */}
+          <div style={{ display:'flex', gap:10, marginBottom:18, alignItems:'center', flexWrap:'wrap' }}>
             <div style={{ flex:1, fontSize:14, color:'#64748b' }}>
               {groups.length} group{groups.length !== 1 ? 's' : ''} · {participants.length} total members
             </div>
             {isAdmin && (
-              <Btn variant="primary" onClick={() => setAddGroup(true)}>
-                <FolderPlus size={15}/> Create Group
-              </Btn>
+              <div style={{ display:'flex', gap:8 }}>
+                <Btn variant="ghost" onClick={autoDistribute} style={{ gap:6 }}>
+                  ⚡ Auto-distribute Members
+                </Btn>
+                <Btn variant="ghost" onClick={onShuffle} style={{ gap:6, color:'#7c3aed', borderColor:'#c4b5fd' }}>
+                  <Shuffle size={14}/> Reshuffle
+                </Btn>
+                <Btn variant="primary" onClick={() => setAddGroup(true)}>
+                  <FolderPlus size={15}/> Create Group
+                </Btn>
+              </div>
             )}
           </div>
+
+          {/* Info box */}
+          {isAdmin && participants.filter(p => p.isActive).length > 0 && groups.length > 0 && (
+            <div style={{ background:'#eff0ff', border:'1.5px solid #c7d2fe', borderRadius:10, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#4338ca' }}>
+              💡 <strong>Auto-distribute</strong> will evenly split all {participants.filter(p=>p.isActive).length} active members across {groups.length} groups
+              (~{Math.ceil(participants.filter(p=>p.isActive).length / groups.length)} per group). <strong>Reshuffle</strong> re-randomizes members across upcoming Sabbath events.
+            </div>
+          )}
 
           {groups.length === 0
             ? <div style={{ textAlign:'center', padding:'60px 20px', color:'#94a3b8' }}>
@@ -338,6 +405,9 @@ export default function ParticipantsView({
                 />
               ))
           }
+
+          {/* Shuffle History */}
+          <ShuffleHistory history={shuffleHistory} />
         </div>
       )}
 
@@ -371,7 +441,7 @@ export default function ParticipantsView({
           </p>
           <div style={{ display:'flex', gap:8 }}>
             <Btn variant="ghost" onClick={() => setConfirmDelete(null)} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
-            <Btn variant="danger" onClick={handleDeleteConfirm} style={{ flex:1, justifyContent:'center', background:'#dc2626', color:'#fff', border:'none' }}>Delete</Btn>
+            <Btn onClick={handleDeleteConfirm} style={{ flex:1, justifyContent:'center', background:'#dc2626', color:'#fff', border:'none', borderRadius:9, padding:'9px', cursor:'pointer', fontWeight:700 }}>Delete</Btn>
           </div>
         </Modal>
       )}
