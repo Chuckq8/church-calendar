@@ -1,21 +1,21 @@
 // App.js
+
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff, X } from 'lucide-react';
+import { Calendar, Users, Settings, Bell, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';
 import { storageGet, storageSet } from './storage';
 import { DEFAULT_HOLIDAYS, DEFAULT_PARTICIPANTS, generateSabbaths, ADMIN_CREDENTIALS, EVENT_TYPES } from './constants';
-import { todayStr, fisherYates, uid } from './utils';
+import { todayStr, fisherYates } from './utils';
 import { Toast, Modal, Field, inputStyle, Btn } from './components/UI';
 import CalendarView from './components/CalendarView';
 import ParticipantsView from './components/ParticipantsView';
 import AdminDashboard from './components/AdminDashboard';
 
 // ─── LOGIN MODAL ──────────────────────────────────────────────────────────────
-
 function LoginModal({ onLogin, onClose }) {
-  const [user,     setUser]     = useState('');
-  const [pass,     setPass]     = useState('');
+  const [user, setUser] = useState('');
+  const [pass, setPass] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [error,    setError]    = useState('');
+  const [error, setError] = useState('');
 
   const submit = () => {
     if (user === ADMIN_CREDENTIALS.username && pass === ADMIN_CREDENTIALS.password) {
@@ -59,24 +59,23 @@ function LoginModal({ onLogin, onClose }) {
 }
 
 // ─── APP ─────────────────────────────────────────────────────────────────────
-
 export default function App() {
-  const [tab,            setTab]            = useState('calendar');
-  const [events,         setEvents]         = useState([]);
-  const [participants,   setParticipants]   = useState([]);
+  const [tab, setTab] = useState('calendar');
+  const [events, setEvents] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [shuffleHistory, setShuffleHistory] = useState([]);
-  const [isAdmin,        setIsAdmin]        = useState(false);
-  const [showLogin,      setShowLogin]      = useState(false);
-  const [loaded,         setLoaded]         = useState(false);
-  const [toast,          setToast]          = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const showToast = useCallback((message, type = 'info') => setToast({ message, type }), []);
 
   // ── Bootstrap data ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const savedEvents       = storageGet('church-events');
+    const savedEvents = storageGet('church-events');
     const savedParticipants = storageGet('church-participants');
-    const savedHistory      = storageGet('church-shuffle-history');
+    const savedHistory = storageGet('church-shuffle-history');
 
     if (savedEvents) {
       setEvents(savedEvents);
@@ -103,13 +102,13 @@ export default function App() {
   useEffect(() => { if (loaded) storageSet('church-shuffle-history', shuffleHistory); }, [shuffleHistory, loaded]);
 
   // ── Event CRUD ──────────────────────────────────────────────────────────────
-  const addEvent    = useCallback(ev => setEvents(es => [...es, ev]), []);
-  const editEvent   = useCallback(ev => setEvents(es => es.map(e => e.id === ev.id ? ev : e)), []);
+  const addEvent = useCallback(ev => setEvents(es => [...es, ev]), []);
+  const editEvent = useCallback(ev => setEvents(es => es.map(e => e.id === ev.id ? ev : e)), []);
   const deleteEvent = useCallback(id => setEvents(es => es.filter(e => e.id !== id)), []);
 
   // ── Participant CRUD ────────────────────────────────────────────────────────
-  const addParticipant    = useCallback(p => setParticipants(ps => [...ps, p]), []);
-  const editParticipant   = useCallback(p => setParticipants(ps => ps.map(x => x.id === p.id ? p : x)), []);
+  const addParticipant = useCallback(p => setParticipants(ps => [...ps, p]), []);
+  const editParticipant = useCallback(p => setParticipants(ps => ps.map(x => x.id === p.id ? p : x)), []);
   const deleteParticipant = useCallback(id => {
     setParticipants(ps => ps.filter(p => p.id !== id));
     setEvents(es => es.map(e => ({ ...e, participants: (e.participants || []).filter(pid => pid !== id) })));
@@ -117,7 +116,7 @@ export default function App() {
 
   // ── Shuffle ─────────────────────────────────────────────────────────────────
   const doShuffle = useCallback(() => {
-    const today  = todayStr();
+    const today = todayStr();
     const active = participants.filter(p => p.isActive);
     if (!active.length) { showToast('No active members to shuffle', 'error'); return; }
 
@@ -128,7 +127,7 @@ export default function App() {
     if (!sabbaths.length) { showToast('No upcoming Sabbath gatherings found', 'error'); return; }
 
     const perEvent = Math.min(active.length, 5);
-    const updated  = sabbaths.map(sab => ({
+    const updated = sabbaths.map(sab => ({
       ...sab,
       participants: fisherYates(active).slice(0, perEvent).map(p => p.id),
     }));
@@ -149,17 +148,17 @@ export default function App() {
           .filter(Boolean).join('; ');
         rows.push([e.title, e.date, e.time||'', EVENT_TYPES[e.type]?.label||e.type, e.description||'', names]);
       });
-      content  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-      type     = 'text/csv';
+      content = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      type = 'text/csv';
       filename = 'church-calendar.csv';
     } else {
-      content  = JSON.stringify({ events, participants, shuffleHistory }, null, 2);
-      type     = 'application/json';
+      content = JSON.stringify({ events, participants, shuffleHistory }, null, 2);
+      type = 'application/json';
       filename = 'church-calendar.json';
     }
 
     const a = document.createElement('a');
-    a.href     = URL.createObjectURL(new Blob([content], { type }));
+    a.href = URL.createObjectURL(new Blob([content], { type }));
     a.download = filename;
     a.click();
     showToast(`${format.toUpperCase()} exported!`, 'success');
@@ -167,9 +166,9 @@ export default function App() {
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
   const tabs = [
-    { id:'calendar',     label:'Calendar',  icon:Calendar  },
-    { id:'participants', label:'Members',   icon:Users     },
-    { id:'admin',        label:'Dashboard', icon:Settings  },
+    { id:'calendar', label:'Calendar', icon:Calendar },
+    { id:'participants', label:'Members', icon:Users },
+    { id:'admin', label:'Dashboard', icon:Settings },
   ];
 
   if (!loaded) return (
@@ -281,8 +280,8 @@ export default function App() {
       {toast && <Toast {...toast} onClose={() => setToast(null)}/>}
 
       <style>{`
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
         @media (max-width: 480px) { .nav-label { display: none; } }
       `}</style>
     </div>
