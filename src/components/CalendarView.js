@@ -242,9 +242,15 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
           <EventForm
             event={editingEvent} participants={participants} groups={groups}
             onSave={ev => {
-              editingEvent ? onEditEvent(ev) : onAddEvent(ev);
-              setAddingEvent(false); setEditingEvent(null);
-              showToast(editingEvent ? 'Event updated!' : 'Event added!', 'success');
+              if (editingEvent) {
+                onEditEvent(ev);
+                showToast('Event updated!', 'success');
+              } else {
+                onAddEvent(ev);
+                showToast('Event added!', 'success');
+              }
+              setAddingEvent(false);
+              setEditingEvent(null);
             }}
             onClose={() => { setAddingEvent(false); setEditingEvent(null); }}
           />
