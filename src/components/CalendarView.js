@@ -8,7 +8,7 @@ import { Modal, Btn } from './UI';
 import EventForm from './EventForm';
 import EventDetail from './EventDetail';
 
-export default function CalendarView({ events, participants, groups, isAdmin, onAddEvent, onEditEvent, onDeleteEvent, showToast }) {
+export default function CalendarView({ events, participants, groups, isAdmin, onAddEvent, onAddEvents, onEditEvent, onDeleteEvent, showToast }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -245,6 +245,10 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
               if (editingEvent) {
                 onEditEvent(ev);
                 showToast('Event updated!', 'success');
+                setEditingEvent(null);
+              } else if (Array.isArray(ev)) {
+                onAddEvents(ev);
+                showToast('Added ' + ev.length + ' recurring events!', 'success');
               } else {
                 onAddEvent(ev);
                 showToast('Event added!', 'success');
