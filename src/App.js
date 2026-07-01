@@ -141,8 +141,19 @@ export default function App() {
   }, []);
 
   const addEvent = useCallback(ev => {
+    // Strip undefined values — Firestore rejects them
+    const clean = JSON.parse(JSON.stringify(ev));
     setEvents(es => {
-      const next = [...es, ev];
+      const next = [...es, clean];
+      saveEvents(next);
+      return next;
+    });
+  }, []);
+
+  const addEvents = useCallback(evList => {
+    const cleaned = evList.map(ev => JSON.parse(JSON.stringify(ev)));
+    setEvents(es => {
+      const next = [...es, ...cleaned];
       saveEvents(next);
       return next;
     });
