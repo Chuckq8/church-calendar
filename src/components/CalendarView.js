@@ -1,7 +1,7 @@
 // components/CalendarView.js
 
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Search, Copy } from 'lucide-react';
 import { EVENT_TYPES } from '../constants';
 import { DAYS, MONTHS } from '../utils';
 import { getDaysInMonth, getFirstDayOfMonth, todayStr } from '../utils';
@@ -16,6 +16,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [copyingEvent, setCopyingEvent] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -24,18 +25,49 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
   const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
   const todayDate = todayStr();
 
-  const monthEvents = useMemo(() => events.filter(e => {
-    const matchMonth = e.date?.startsWith(monthStr);
+  // Expand multi-day events into all dates they span
+  const expandedEvents = useMemo(() => {
+    const result = [];
+    events.forEach(e => {
+      if (e.endDate && e.endDate > e.date) {
+        // Multi-day: generate an entry for each day in range
+        const start = new Date(e.date + 'T00:00:00');
+        const end = new Date(e.endDate + 'T00:00:00');
+        const cur = new Date(start);
+        let dayIndex = 0;
+        while (cur <= end) {
+          const dateStr = cur.getFullYear() + '-' +
+            String(cur.getMonth() + 1).padStart(2, '0') + '-' +
+            String(cur.getDate()).padStart(2, '0');
+          result.push({
+            ...e,
+            _displayDate: dateStr,
+            _isMultiDay: true,
+            _dayIndex: dayIndex,
+            _totalDays: Math.round((end - start) / 86400000) + 1,
+          });
+          cur.setDate(cur.getDate() + 1);
+          dayIndex++;
+        }
+      } else {
+        result.push({ ...e, _displayDate: e.date, _isMultiDay: false });
+      }
+    });
+    return result;
+  }, [events]);
+
+  const monthEvents = useMemo(() => expandedEvents.filter(e => {
+    const matchMonth = e._displayDate?.startsWith(monthStr);
     const matchType = filterType === 'all' || e.type === filterType;
     const matchSearch = !search || e.title.toLowerCase().includes(search.toLowerCase());
     return matchMonth && matchType && matchSearch;
-  }), [events, monthStr, filterType, search]);
+  }), [expandedEvents, monthStr, filterType, search]);
 
   const eventsByDate = useMemo(() => {
     const map = {};
     monthEvents.forEach(e => {
-      if (!map[e.date]) map[e.date] = [];
-      map[e.date].push(e);
+      if (!map[e._displayDate]) map[e._displayDate] = [];
+      map[e._displayDate].push(e);
     });
     return map;
   }, [monthEvents]);
@@ -47,6 +79,24 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const handleCopyEvent = (ev, newDate) => {
+    const { id, _displayDate, _isMultiDay, _dayIndex, _totalDays, ...rest } = ev;
+    const copied = {
+      ...rest,
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      date: newDate,
+      endDate: rest.endDate ? (() => {
+        const diff = new Date(rest.endDate) - new Date(rest.date);
+        const newEnd = new Date(new Date(newDate).getTime() + diff);
+        return newEnd.toISOString().slice(0, 10);
+      })() : undefined,
+      title: rest.title + ' (copy)',
+    };
+    onAddEvent(copied);
+    setCopyingEvent(null);
+    showToast('Event copied!', 'success');
+  };
 
   return (
     <div>
@@ -98,19 +148,37 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
             const dayEvents = eventsByDate[dateStr] || [];
             const isToday = dateStr === todayDate;
             const isSat = new Date(year, month, day).getDay() === 6;
+
             return (
               <div key={day} style={{ minHeight:88, padding:'6px 4px 4px', borderRight:'1px solid #f1f5f9', borderBottom:'1px solid #f1f5f9', background: isToday ? '#eff6ff' : isSat ? '#faf5ff' : '#fff' }}>
                 <div style={{ width:26, height:26, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight: isToday ? 800 : 500, background: isToday ? '#4f46e5' : 'none', color: isToday ? '#fff' : isSat ? '#4f46e5' : '#374151', marginBottom:3 }}>{day}</div>
                 {dayEvents.slice(0, 3).map(ev => {
                   const t = EVENT_TYPES[ev.type] || EVENT_TYPES.event;
-                  const hasGroups = (ev.groupIds || []).length > 0;
+                  const isStart = !ev._isMultiDay || ev._dayIndex === 0;
+                  const isEnd = !ev._isMultiDay || ev._dayIndex === ev._totalDays - 1;
                   return (
-                    <div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{ background:t.bg, color:t.color, fontSize:10, fontWeight:700, borderRadius:4, padding:'2px 5px', marginBottom:2, cursor:'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', border:`1px solid ${t.border}` }}>
-                      {hasGroups ? '👥 ' : ''}{ev.title}
+                    <div key={ev.id + ev._displayDate} onClick={() => setSelectedEvent(ev)} style={{
+                      background: t.bg,
+                      color: t.color,
+                      fontSize:10,
+                      fontWeight:700,
+                      borderRadius: ev._isMultiDay ? (isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : '0') : 4,
+                      padding:'2px 4px',
+                      marginBottom:2,
+                      cursor:'pointer',
+                      overflow:'hidden',
+                      textOverflow:'ellipsis',
+                      whiteSpace:'nowrap',
+                      border: `1px solid ${t.border}`,
+                      borderLeft: ev._isMultiDay && !isStart ? 'none' : `1px solid ${t.border}`,
+                      borderRight: ev._isMultiDay && !isEnd ? 'none' : `1px solid ${t.border}`,
+                    }}>
+                      {/* Only show title on first day of multi-day */}
+                      {(!ev._isMultiDay || isStart) ? ev.title : ''}
                     </div>
                   );
                 })}
-                {dayEvents.length > 3 && <div style={{ fontSize:10, color:'#94a3b8', padding:'0 5px' }}>+{dayEvents.length-3} more</div>}
+                {dayEvents.length > 3 && <div style={{ fontSize:10, color:'#94a3b8', padding:'0 4px' }}>+{dayEvents.length-3}</div>}
               </div>
             );
           })}
@@ -130,17 +198,20 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
         </div>
       </div>
 
+      {/* Event detail modal */}
       {selectedEvent && (
         <Modal title={selectedEvent.title} onClose={() => setSelectedEvent(null)}>
           <EventDetail
             event={selectedEvent} participants={participants} groups={groups} isAdmin={isAdmin}
             onEdit={() => { setEditingEvent(selectedEvent); setSelectedEvent(null); }}
             onDelete={() => { onDeleteEvent(selectedEvent.id); setSelectedEvent(null); showToast('Event deleted', 'success'); }}
+            onCopy={() => { setCopyingEvent(selectedEvent); setSelectedEvent(null); }}
             onClose={() => setSelectedEvent(null)}
           />
         </Modal>
       )}
 
+      {/* Add/Edit modal */}
       {(addingEvent || editingEvent) && (
         <Modal title={editingEvent ? 'Edit Event' : 'Add New Event'} onClose={() => { setAddingEvent(false); setEditingEvent(null); }}>
           <EventForm
@@ -152,6 +223,30 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
             }}
             onClose={() => { setAddingEvent(false); setEditingEvent(null); }}
           />
+        </Modal>
+      )}
+
+      {/* Copy event modal */}
+      {copyingEvent && (
+        <Modal title={'Copy: ' + copyingEvent.title} onClose={() => setCopyingEvent(null)}>
+          <p style={{ fontSize:14, color:'#64748b', marginBottom:16 }}>
+            Select a new start date to copy this event to:
+          </p>
+          <input
+            type="date"
+            defaultValue={copyingEvent.date}
+            style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #e2e8f0', borderRadius:9, fontSize:14, marginBottom:16, boxSizing:'border-box' }}
+            id="copy-date-input"
+          />
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn variant="ghost" onClick={() => setCopyingEvent(null)} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
+            <Btn variant="primary" onClick={() => {
+              const val = document.getElementById('copy-date-input').value;
+              if (val) handleCopyEvent(copyingEvent, val);
+            }} style={{ flex:1, justifyContent:'center' }}>
+              <Copy size={14}/> Copy Event
+            </Btn>
+          </div>
         </Modal>
       )}
     </div>
