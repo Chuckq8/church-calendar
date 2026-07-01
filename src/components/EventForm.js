@@ -6,13 +6,15 @@ import { uid } from '../utils';
 import { Field, inputStyle, Btn } from './UI';
 
 export default function EventForm({ event, participants, groups, onSave, onClose }) {
-  const [title, setTitle]       = useState(event?.title || '');
-  const [date, setDate]         = useState(event?.date || '');
-  const [time, setTime]         = useState(event?.time || '');
-  const [type, setType]         = useState(event?.type || 'event');
-  const [desc, setDesc]         = useState(event?.description || '');
-  const [selParticipants, setSP] = useState(event?.participants || []);
-  const [selGroups, setSG]       = useState(event?.groupIds || []);
+  const [title, setTitle]         = useState(event?.title || '');
+  const [date, setDate]           = useState(event?.date || '');
+  const [endDate, setEndDate]     = useState(event?.endDate || '');
+  const [isMultiDay, setMultiDay] = useState(!!(event?.endDate));
+  const [time, setTime]           = useState(event?.time || '');
+  const [type, setType]           = useState(event?.type || 'event');
+  const [desc, setDesc]           = useState(event?.description || '');
+  const [selParticipants, setSP]  = useState(event?.participants || []);
+  const [selGroups, setSG]        = useState(event?.groupIds || []);
 
   const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
   const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
@@ -21,7 +23,11 @@ export default function EventForm({ event, participants, groups, onSave, onClose
     if (!title.trim() || !date) return;
     onSave({
       id: event?.id || uid(),
-      title: title.trim(), date, time, type,
+      title: title.trim(),
+      date,
+      endDate: isMultiDay && endDate && endDate > date ? endDate : undefined,
+      time,
+      type,
       description: desc.trim(),
       participants: selParticipants,
       groupIds: selGroups,
@@ -33,14 +39,48 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       <Field label="Event Title *">
         <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="Event title"/>
       </Field>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        <Field label="Date *">
+
+      {/* Multi-day toggle */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+        <button onClick={() => setMultiDay(v => !v)} style={{
+          display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', padding:0,
+        }}>
+          <div style={{
+            width:36, height:20, borderRadius:10, position:'relative', transition:'background 0.2s',
+            background: isMultiDay ? '#4f46e5' : '#e2e8f0',
+          }}>
+            <div style={{
+              width:16, height:16, borderRadius:'50%', background:'#fff',
+              position:'absolute', top:2, transition:'left 0.2s',
+              left: isMultiDay ? 18 : 2,
+              boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+            }}/>
+          </div>
+          <span style={{ fontSize:13, fontWeight:600, color:'#475569' }}>Multi-day event</span>
+        </button>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns: isMultiDay ? '1fr 1fr' : '1fr 1fr', gap:12 }}>
+        <Field label={isMultiDay ? 'Start Date *' : 'Date *'}>
           <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)}/>
         </Field>
+        {isMultiDay ? (
+          <Field label="End Date *">
+            <input style={inputStyle} type="date" value={endDate} min={date} onChange={e => setEndDate(e.target.value)}/>
+          </Field>
+        ) : (
+          <Field label="Time">
+            <input style={inputStyle} type="time" value={time} onChange={e => setTime(e.target.value)}/>
+          </Field>
+        )}
+      </div>
+
+      {isMultiDay && (
         <Field label="Time">
           <input style={inputStyle} type="time" value={time} onChange={e => setTime(e.target.value)}/>
         </Field>
-      </div>
+      )}
+
       <Field label="Event Type">
         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
           {Object.entries(EVENT_TYPES).map(([k, v]) => (
@@ -54,11 +94,11 @@ export default function EventForm({ event, participants, groups, onSave, onClose
           ))}
         </div>
       </Field>
+
       <Field label="Description">
         <textarea style={{ ...inputStyle, height:72, resize:'vertical' }} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional notes…"/>
       </Field>
 
-      {/* Groups */}
       {groups && groups.length > 0 && (
         <Field label="Assign Groups">
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
@@ -79,7 +119,6 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-      {/* Individual participants */}
       {participants && participants.length > 0 && (
         <Field label="Assign Individual Members">
           <div style={{ border:'1.5px solid #e2e8f0', borderRadius:10, maxHeight:180, overflowY:'auto' }}>
