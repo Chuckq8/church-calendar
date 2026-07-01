@@ -394,7 +394,7 @@ export default function App() {
         {tab === 'calendar' && (
           <CalendarView
             events={events} participants={participants} groups={groups} isAdmin={isAdmin}
-            onAddEvent={addEvent} onEditEvent={editEvent} onDeleteEvent={deleteEvent}
+            onAddEvent={addEvent} onAddEvents={addEvents} onEditEvent={editEvent} onDeleteEvent={deleteEvent}
             showToast={showToast}
           />
         )}
