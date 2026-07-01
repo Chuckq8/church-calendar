@@ -105,18 +105,14 @@ export default function EventDetail({ event, participants, groups, isAdmin, onEd
         <div style={{ color:'#94a3b8', fontSize:13, textAlign:'center', padding:'16px 0' }}>No participants assigned yet</div>
       )}
 
-      {isAdmin && (
-        <div style={{ display:'flex', gap:8, marginTop:20, paddingTop:16, borderTop:'1px solid #f1f5f9' }}>
-          <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Close</Btn>
+     <div style={{ display:'flex', gap:8, marginTop:20, paddingTop:16, borderTop:'1px solid #f1f5f9', flexWrap:'wrap' }}>
+        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Close</Btn>
+        {isAdmin && <>
+          <Btn variant="ghost" onClick={onCopy} style={{ flex:1, justifyContent:'center', color:'#059669' }}>📋 Copy</Btn>
           <Btn variant="ghost" onClick={onEdit} style={{ flex:1, justifyContent:'center', color:'#4f46e5' }}>✏️ Edit</Btn>
           <Btn variant="ghost" onClick={onDelete} style={{ flex:1, justifyContent:'center', color:'#dc2626' }}>🗑 Delete</Btn>
-        </div>
-      )}
-      {!isAdmin && (
-        <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #f1f5f9' }}>
-          <Btn variant="ghost" onClick={onClose} style={{ width:'100%', justifyContent:'center' }}>Close</Btn>
-        </div>
-      )}
+        </>}
+      </div>
     </div>
   );
 }
