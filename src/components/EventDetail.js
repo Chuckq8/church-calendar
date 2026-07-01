@@ -3,7 +3,7 @@
 import { EVENT_TYPES } from '../constants';
 import { Btn } from './UI';
 
-export default function EventDetail({ event, participants, groups, isAdmin, onEdit, onDelete, onClose }) {
+export default function EventDetail({ event, participants, groups, isAdmin, onEdit, onDelete, onCopy, onClose }) {
   const typeInfo = EVENT_TYPES[event.type] || EVENT_TYPES.event;
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -32,7 +32,11 @@ export default function EventDetail({ event, participants, groups, isAdmin, onEd
         <span style={{ fontSize:12, fontWeight:700, borderRadius:20, padding:'3px 12px', background:typeInfo.bg, color:typeInfo.color, border:'1px solid ' + typeInfo.border }}>
           {typeInfo.label}
         </span>
-        <span style={{ fontSize:13, color:'#64748b' }}>📅 {event.date}{event.time ? ' · ' + event.time : ''}</span>
+       <span style={{ fontSize:13, color:'#64748b' }}>
+          📅 {event.date}
+          {event.endDate && event.endDate !== event.date ? ' → ' + event.endDate : ''}
+          {event.time ? ' · ' + event.time : ''}
+        </span>
         {isPast && (
           <span style={{ fontSize:11, fontWeight:700, background:'#f1f5f9', color:'#64748b', borderRadius:20, padding:'2px 10px', border:'1px solid #e2e8f0' }}>
             ✅ Completed
