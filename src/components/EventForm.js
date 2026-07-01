@@ -60,16 +60,13 @@ export default function EventForm({ event, participants, groups, onSave, onClose
     };
 
     if (recurrence !== 'none' && recurUntil && !event) {
-      // Generate multiple recurring events
       const dates = generateRecurringDates(date, recurrence, recurUntil);
-      dates.forEach((d, i) => {
-        onSave({
-          ...baseEvent,
-          id: uid(),
-          date: d,
-          title: title.trim() + (dates.length > 1 && i === 0 ? '' : ''),
-        });
-      });
+      const recurringEvents = dates.map(d => ({
+        ...baseEvent,
+        id: uid(),
+        date: d,
+      }));
+      onSave(recurringEvents);
     } else {
       onSave({ ...baseEvent, id: event?.id || uid() });
     }
