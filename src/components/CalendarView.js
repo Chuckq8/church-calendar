@@ -8,7 +8,11 @@ import { Modal, Btn } from './UI';
 import EventForm from './EventForm';
 import EventDetail from './EventDetail';
 
-export default function CalendarView({ events, participants, groups, isAdmin, onAddEvent, onAddEvents, onEditEvent, onDeleteEvent, showToast }) {
+export default function CalendarView({
+  events, participants, groups, isAdmin,
+  onAddEvent, onAddEvents, onEditEvent, onDeleteEvent, onDeleteSeries,
+  showToast
+}) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -38,7 +42,13 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
           const dateStr = cur.getFullYear() + '-' +
             String(cur.getMonth() + 1).padStart(2, '0') + '-' +
             String(cur.getDate()).padStart(2, '0');
-          result.push({ ...e, _displayDate: dateStr, _isMultiDay: true, _dayIndex: dayIndex, _totalDays: totalDays });
+          result.push({
+            ...e,
+            _displayDate: dateStr,
+            _isMultiDay: true,
+            _dayIndex: dayIndex,
+            _totalDays: totalDays,
+          });
           cur.setDate(cur.getDate() + 1);
           dayIndex++;
         }
@@ -65,8 +75,14 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
     return map;
   }, [monthEvents]);
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y-1); } else setMonth(m => m-1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y+1); } else setMonth(m => m+1); };
+  const prevMonth = () => {
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
   const goToday = () => { setYear(today.getFullYear()); setMonth(today.getMonth()); };
 
   const cells = [];
@@ -76,11 +92,13 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
   const handleCopyEvent = () => {
     if (!copyDate || !copyingEvent) return;
     const { id, _displayDate, _isMultiDay, _dayIndex, _totalDays, ...rest } = copyingEvent;
-    let newEndDate;
+    let newEndDate = null;
     if (rest.endDate && rest.endDate > rest.date) {
       const diff = new Date(rest.endDate + 'T00:00:00') - new Date(rest.date + 'T00:00:00');
       const newEnd = new Date(new Date(copyDate + 'T00:00:00').getTime() + diff);
-      newEndDate = newEnd.getFullYear() + '-' + String(newEnd.getMonth()+1).padStart(2,'0') + '-' + String(newEnd.getDate()).padStart(2,'0');
+      newEndDate = newEnd.getFullYear() + '-' +
+        String(newEnd.getMonth() + 1).padStart(2, '0') + '-' +
+        String(newEnd.getDate()).padStart(2, '0');
     }
     onAddEvent({
       ...rest,
@@ -92,6 +110,18 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
     setCopyingEvent(null);
     setCopyDate('');
     showToast('Event copied!', 'success');
+  };
+
+  const handleDelete = () => {
+    onDeleteEvent(selectedEvent.id);
+    setSelectedEvent(null);
+    showToast('Event deleted', 'success');
+  };
+
+  const handleDeleteAll = () => {
+    onDeleteSeries(selectedEvent.title);
+    setSelectedEvent(null);
+    showToast('All events in series deleted', 'success');
   };
 
   return (
@@ -110,8 +140,12 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:9, padding:'6px 10px', flex:1, minWidth:0 }}>
           <Search size={13} color="#94a3b8"/>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-            style={{ border:'none', background:'none', outline:'none', fontSize:13, color:'#1e293b', width:'100%', minWidth:0 }}/>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search…"
+            style={{ border:'none', background:'none', outline:'none', fontSize:13, color:'#1e293b', width:'100%', minWidth:0 }}
+          />
         </div>
         {isAdmin && (
           <Btn variant="primary" onClick={() => setAddingEvent(true)} style={{ padding:'7px 10px', fontSize:12 }}>
@@ -122,7 +156,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
 
       {/* Filter pills */}
       <div style={{ display:'flex', gap:5, marginBottom:12, flexWrap:'wrap' }}>
-        {[['all','All','#64748b'], ...Object.entries(EVENT_TYPES).map(([k,v]) => [k, v.label, v.color])].map(([k, label, color]) => (
+        {[['all', 'All', '#64748b'], ...Object.entries(EVENT_TYPES).map(([k, v]) => [k, v.label, v.color])].map(([k, label, color]) => (
           <button key={k} onClick={() => setFilterType(k)} style={{
             padding:'3px 10px', borderRadius:20, border:'none', cursor:'pointer',
             fontSize:11, fontWeight:700,
@@ -137,7 +171,9 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
         {/* Day headers */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'#f8fafc', borderBottom:'1.5px solid #e2e8f0' }}>
           {DAYS.map(d => (
-            <div key={d} style={{ padding:'8px 2px', textAlign:'center', fontSize:11, fontWeight:700, color: d === 'Sat' ? '#4f46e5' : '#64748b' }}>{d}</div>
+            <div key={d} style={{ padding:'8px 2px', textAlign:'center', fontSize:11, fontWeight:700, color: d === 'Sat' ? '#4f46e5' : '#64748b' }}>
+              {d}
+            </div>
           ))}
         </div>
 
@@ -145,7 +181,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {cells.map((day, i) => {
             if (!day) return <div key={`e${i}`} style={emptyCell}/>;
-            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayEvents = eventsByDate[dateStr] || [];
             const isToday = dateStr === todayDate;
             const isSat = new Date(year, month, day).getDay() === 6;
@@ -169,9 +205,9 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
                   marginBottom:2,
                 }}>{day}</div>
 
-                {/* Events — show max 2 on mobile */}
+                {/* Events */}
                 {dayEvents.slice(0, 2).map(ev => {
-                  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.special || EVENT_TYPES.event;
+                  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.event;
                   const isStart = !ev._isMultiDay || ev._dayIndex === 0;
                   return (
                     <div
@@ -183,7 +219,9 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
                         color: '#fff',
                         fontSize:9,
                         fontWeight:700,
-                        borderRadius: ev._isMultiDay ? (isStart ? '3px 0 0 3px' : (ev._dayIndex === ev._totalDays - 1 ? '0 3px 3px 0' : '0')) : 3,
+                        borderRadius: ev._isMultiDay
+                          ? (isStart ? '3px 0 0 3px' : ev._dayIndex === ev._totalDays - 1 ? '0 3px 3px 0' : '0')
+                          : 3,
                         padding:'1px 4px',
                         marginBottom:1,
                         cursor:'pointer',
@@ -201,7 +239,9 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
                   );
                 })}
                 {dayEvents.length > 2 && (
-                  <div style={{ fontSize:9, color:'#94a3b8', paddingLeft:2 }}>+{dayEvents.length - 2}</div>
+                  <div style={{ fontSize:9, color:'#94a3b8', paddingLeft:2 }}>
+                    +{dayEvents.length - 2}
+                  </div>
                 )}
               </div>
             );
@@ -227,9 +267,13 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
       {selectedEvent && (
         <Modal title={selectedEvent.title} onClose={() => setSelectedEvent(null)}>
           <EventDetail
-            event={selectedEvent} participants={participants} groups={groups} isAdmin={isAdmin}
+            event={selectedEvent}
+            participants={participants}
+            groups={groups}
+            isAdmin={isAdmin}
             onEdit={() => { setEditingEvent(selectedEvent); setSelectedEvent(null); }}
-            onDelete={() => { onDeleteEvent(selectedEvent.id); setSelectedEvent(null); showToast('Event deleted', 'success'); }}
+            onDelete={handleDelete}
+            onDeleteAll={handleDeleteAll}
             onCopy={() => { setCopyingEvent(selectedEvent); setCopyDate(selectedEvent.date); setSelectedEvent(null); }}
             onClose={() => setSelectedEvent(null)}
           />
@@ -238,9 +282,14 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
 
       {/* Add/Edit modal */}
       {(addingEvent || editingEvent) && (
-        <Modal title={editingEvent ? 'Edit Event' : 'Add New Event'} onClose={() => { setAddingEvent(false); setEditingEvent(null); }}>
+        <Modal
+          title={editingEvent ? 'Edit Event' : 'Add New Event'}
+          onClose={() => { setAddingEvent(false); setEditingEvent(null); }}
+        >
           <EventForm
-            event={editingEvent} participants={participants} groups={groups}
+            event={editingEvent}
+            participants={participants}
+            groups={groups}
             onSave={ev => {
               if (editingEvent) {
                 onEditEvent(ev);
@@ -261,7 +310,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
         </Modal>
       )}
 
-      {/* Copy modal — now uses controlled state, no getElementById */}
+      {/* Copy modal */}
       {copyingEvent && (
         <Modal title={'Copy: ' + copyingEvent.title} onClose={() => { setCopyingEvent(null); setCopyDate(''); }}>
           <p style={{ fontSize:14, color:'#64748b', marginBottom:16 }}>
@@ -278,7 +327,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
           </div>
           {copyingEvent.endDate && copyingEvent.endDate > copyingEvent.date && copyDate && (
             <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'8px 12px', marginBottom:16, fontSize:12, color:'#166534' }}>
-              End date will automatically be adjusted to maintain the same duration.
+              End date will automatically adjust to keep the same duration.
             </div>
           )}
           <div style={{ display:'flex', gap:8 }}>
@@ -296,9 +345,10 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
 const navBtn = {
   background:'#f1f5f9', border:'none', borderRadius:9,
   width:32, height:32, cursor:'pointer',
-  display:'flex', alignItems:'center', justifyContent:'center', color:'#475569',
-  flexShrink:0,
+  display:'flex', alignItems:'center', justifyContent:'center',
+  color:'#475569', flexShrink:0,
 };
+
 const emptyCell = {
   minHeight:60,
   borderRight:'1px solid #f1f5f9',
