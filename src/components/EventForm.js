@@ -18,13 +18,15 @@ function generateRecurringDates(startDate, recurrence, untilDate) {
   const dates = [];
   const cur = new Date(startDate + 'T00:00:00');
   const end = new Date(untilDate + 'T00:00:00');
+  if (cur > end) return [startDate];
   while (cur <= end) {
     const ds = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
     dates.push(ds);
-    if (recurrence === 'weekly')   cur.setDate(cur.getDate() + 7);
-    if (recurrence === 'biweekly') cur.setDate(cur.getDate() + 14);
-    if (recurrence === 'monthly')  cur.setMonth(cur.getMonth() + 1);
-    if (recurrence === 'yearly')   cur.setFullYear(cur.getFullYear() + 1);
+    if (recurrence === 'weekly')        cur.setDate(cur.getDate() + 7);
+    else if (recurrence === 'biweekly') cur.setDate(cur.getDate() + 14);
+    else if (recurrence === 'monthly')  cur.setMonth(cur.getMonth() + 1);
+    else if (recurrence === 'yearly')   cur.setFullYear(cur.getFullYear() + 1);
+    else break;
   }
   return dates;
 }
