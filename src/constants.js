@@ -10,8 +10,8 @@ export const EVENT_TYPES = {
   holiday:  { label: 'Holiday',   color: '#059669', bg: '#f0fdf4', border: '#bbf7d0' },
   meeting:  { label: 'Meeting',   color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
   outreach: { label: 'Outreach',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-  event:    { label: 'Event',     color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff' },
   special:  { label: 'Special',   color: '#db2777', bg: '#fdf2f8', border: '#fbcfe8' },
+  event:    { label: 'Event',     color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff' },
 };
 
 export const DEFAULT_PARTICIPANTS = [];
