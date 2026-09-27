@@ -10,6 +10,7 @@ const RECUR_OPTIONS = [
   { value: 'weekly',  label: 'Every week (same day)' },
   { value: 'biweekly',label: 'Every 2 weeks' },
   { value: 'monthly', label: 'Every month (same date)' },
+  { value: 'yearly',  label: 'Every year (same date)' },
 ];
 
 function generateRecurringDates(startDate, recurrence, untilDate) {
@@ -23,6 +24,7 @@ function generateRecurringDates(startDate, recurrence, untilDate) {
     if (recurrence === 'weekly')   cur.setDate(cur.getDate() + 7);
     if (recurrence === 'biweekly') cur.setDate(cur.getDate() + 14);
     if (recurrence === 'monthly')  cur.setMonth(cur.getMonth() + 1);
+    if (recurrence === 'yearly')   cur.setFullYear(cur.getFullYear() + 1);
   }
   return dates;
 }
