@@ -16,13 +16,14 @@ const RECUR_OPTIONS = [
 function generateRecurringDates(startDate, recurrence, untilDate, noEndDate) {
   if (!startDate || recurrence === 'none') return [startDate];
 
-  // If no end date, auto-generate up to 10 years from start
   let endDateStr = untilDate;
   if (noEndDate) {
     const start = new Date(startDate + 'T00:00:00');
     const autoEnd = new Date(start);
     autoEnd.setFullYear(autoEnd.getFullYear() + 10);
-    endDateStr = autoEnd.getFullYear() + '-' + String(autoEnd.getMonth()+1).padStart(2,'0') + '-' + String(autoEnd.getDate()).padStart(2,'0');
+    endDateStr = autoEnd.getFullYear() + '-' +
+      String(autoEnd.getMonth() + 1).padStart(2, '0') + '-' +
+      String(autoEnd.getDate()).padStart(2, '0');
   }
 
   if (!endDateStr) return [startDate];
@@ -33,7 +34,9 @@ function generateRecurringDates(startDate, recurrence, untilDate, noEndDate) {
   if (cur > end) return [startDate];
 
   while (cur <= end) {
-    const ds = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+    const ds = cur.getFullYear() + '-' +
+      String(cur.getMonth() + 1).padStart(2, '0') + '-' +
+      String(cur.getDate()).padStart(2, '0');
     dates.push(ds);
     if (recurrence === 'weekly')        cur.setDate(cur.getDate() + 7);
     else if (recurrence === 'biweekly') cur.setDate(cur.getDate() + 14);
@@ -42,6 +45,28 @@ function generateRecurringDates(startDate, recurrence, untilDate, noEndDate) {
     else break;
   }
   return dates;
+}
+
+function Toggle({ on, onToggle, label }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer', padding:0 }}
+    >
+      <div style={{
+        width:36, height:20, borderRadius:10, position:'relative',
+        transition:'background 0.2s', background: on ? '#4f46e5' : '#e2e8f0',
+        flexShrink:0,
+      }}>
+        <div style={{
+          width:16, height:16, borderRadius:'50%', background:'#fff',
+          position:'absolute', top:2, transition:'left 0.2s',
+          left: on ? 18 : 2, boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+        }}/>
+      </div>
+      <span style={{ fontSize:13, fontWeight:600, color: on ? '#4f46e5' : '#475569' }}>{label}</span>
+    </button>
+  );
 }
 
 export default function EventForm({ event, participants, groups, onSave, onClose }) {
@@ -55,15 +80,15 @@ export default function EventForm({ event, participants, groups, onSave, onClose
   const [selParticipants, setSP]    = useState(event?.participants || []);
   const [selGroups, setSG]          = useState(event?.groupIds || []);
   const [recurrence, setRecur]      = useState(event?.recurrence || 'none');
-   const [recurUntil, setRecurUntil] = useState(event?.recurUntil || '');
+  const [recurUntil, setRecurUntil] = useState(event?.recurUntil || '');
   const [noEndDate, setNoEndDate]   = useState(event?.noEndDate || false);
-  
+
   const isEditing = !!event;
 
   const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
   const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
 
-    const recurringCount = !isEditing && recurrence !== 'none' && (recurUntil || noEndDate) && date
+  const recurringCount = !isEditing && recurrence !== 'none' && (recurUntil || noEndDate) && date
     ? generateRecurringDates(date, recurrence, recurUntil, noEndDate).length
     : 0;
 
@@ -80,11 +105,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       participants: selParticipants,
       groupIds: selGroups,
       recurrence: recurrence !== 'none' ? recurrence : null,
-      recurUntil: (recurrence !== 'none' && recurUntil) ? recurUntil : null,
+      recurUntil: (recurrence !== 'none' && recurUntil && !noEndDate) ? recurUntil : null,
+      noEndDate: (recurrence !== 'none' && noEndDate) ? true : null,
     };
 
-    if (!isEditing && recurrence !== 'none' && recurUntil) {
-      const dates = generateRecurringDates(date, recurrence, recurUntil);
+    if (!isEditing && recurrence !== 'none' && (recurUntil || noEndDate)) {
+      const dates = generateRecurringDates(date, recurrence, recurUntil, noEndDate);
       const recurringEvents = dates.map(d => ({ ...baseEvent, id: uid(), date: d }));
       onSave(recurringEvents);
     } else {
@@ -97,17 +123,21 @@ export default function EventForm({ event, participants, groups, onSave, onClose
 
       {/* Title */}
       <Field label="Event Title *">
-        <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="Event title"/>
+        <input
+          style={inputStyle}
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Event title"
+        />
       </Field>
 
       {/* Multi-day toggle */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
-        <button onClick={() => setMultiDay(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', padding:0 }}>
-          <div style={{ width:36, height:20, borderRadius:10, position:'relative', transition:'background 0.2s', background: isMultiDay ? '#4f46e5' : '#e2e8f0' }}>
-            <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:2, transition:'left 0.2s', left: isMultiDay ? 18 : 2, boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
-          </div>
-          <span style={{ fontSize:13, fontWeight:600, color:'#475569' }}>Multi-day event</span>
-        </button>
+      <div style={{ marginBottom:14 }}>
+        <Toggle
+          on={isMultiDay}
+          onToggle={() => setMultiDay(v => !v)}
+          label="Multi-day event"
+        />
       </div>
 
       {/* Date fields */}
@@ -132,12 +162,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-      {/* Repeat dropdown — ALWAYS visible */}
+      {/* Repeat */}
       <Field label="Repeat">
         <select
           style={{ ...inputStyle, cursor:'pointer' }}
           value={recurrence}
-          onChange={e => setRecur(e.target.value)}
+          onChange={e => { setRecur(e.target.value); setNoEndDate(false); setRecurUntil(''); }}
         >
           {RECUR_OPTIONS.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -145,36 +175,48 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </select>
       </Field>
 
-      {/* Repeat Until — ALWAYS visible, just disabled when no repeat selected */}
-      <Field label="Repeat Until">
-        <input
-          type="date"
-          value={recurUntil}
-          min={date}
-          disabled={recurrence === 'none'}
-          onChange={e => setRecurUntil(e.target.value)}
-          style={{
-            ...inputStyle,
-            opacity: recurrence === 'none' ? 0.4 : 1,
-            cursor: recurrence === 'none' ? 'not-allowed' : 'pointer',
-          }}
-        />
-        {recurrence === 'none' && (
-          <div style={{ marginTop:4, fontSize:11, color:'#94a3b8' }}>
-            Select a repeat option above to enable
+      {/* Repeat Until — only shows when a repeat is selected */}
+      {recurrence !== 'none' && (
+        <Field label="Repeat Until">
+
+          {/* No end date toggle */}
+          <div style={{ marginBottom:10 }}>
+            <Toggle
+              on={noEndDate}
+              onToggle={() => { setNoEndDate(v => !v); setRecurUntil(''); }}
+              label="No end date (repeats for 10 years)"
+            />
           </div>
-        )}
-        {recurringCount > 0 && !isEditing && (
-          <div style={{ marginTop:6, fontSize:12, color:'#4f46e5', fontWeight:600 }}>
-            This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
-          </div>
-        )}
-        {isEditing && recurrence !== 'none' && (
-          <div style={{ marginTop:6, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
-            ⚠️ This only updates this single event
-          </div>
-        )}
-      </Field>
+
+          {/* Date picker — hidden when no end date is on */}
+          {!noEndDate && (
+            <input
+              type="date"
+              value={recurUntil}
+              min={date}
+              onChange={e => setRecurUntil(e.target.value)}
+              style={{ ...inputStyle }}
+            />
+          )}
+
+          {/* Info messages */}
+          {noEndDate && (
+            <div style={{ marginTop:6, fontSize:12, color:'#4f46e5', fontWeight:600 }}>
+              Will automatically repeat for 10 years from the start date
+            </div>
+          )}
+          {recurringCount > 0 && !isEditing && (
+            <div style={{ marginTop:6, fontSize:12, color:'#059669', fontWeight:600 }}>
+              ✅ This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
+            </div>
+          )}
+          {isEditing && (
+            <div style={{ marginTop:6, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
+              ⚠️ Editing only updates this single event
+            </div>
+          )}
+        </Field>
+      )}
 
       {/* Event Type */}
       <Field label="Event Type">
@@ -193,7 +235,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
 
       {/* Description */}
       <Field label="Description">
-        <textarea style={{ ...inputStyle, height:72, resize:'vertical' }} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional notes…"/>
+        <textarea
+          style={{ ...inputStyle, height:72, resize:'vertical' }}
+          value={desc}
+          onChange={e => setDesc(e.target.value)}
+          placeholder="Optional notes…"
+        />
       </Field>
 
       {/* Assign Groups */}
@@ -249,7 +296,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       <div style={{ display:'flex', gap:8, marginTop:8 }}>
         <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
         <Btn variant="primary" onClick={save} style={{ flex:1, justifyContent:'center' }}>
-          {isEditing ? 'Save Changes' : (recurringCount > 1 ? 'Add ' + recurringCount + ' Events' : 'Add Event')}
+          {isEditing
+            ? 'Save Changes'
+            : recurringCount > 1
+              ? 'Add ' + recurringCount + ' Events'
+              : 'Add Event'
+          }
         </Btn>
       </div>
 
