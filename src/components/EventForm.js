@@ -122,29 +122,28 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-      {/* Recurring — shown for both new and edit, but generating multiple only works for new */}
-      {!isMultiDay && (
-        <Field label="Repeat">
-          <select
-            style={{ ...inputStyle, cursor:'pointer' }}
-            value={recurrence}
-            onChange={e => setRecur(e.target.value)}
-          >
-            {RECUR_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </Field>
-      )}
+            {/* Repeat dropdown — always visible */}
+      <Field label="Repeat">
+        <select
+          style={{ ...inputStyle, cursor:'pointer' }}
+          value={recurrence}
+          onChange={e => setRecur(e.target.value)}
+        >
+          {RECUR_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </Field>
 
-      {!isMultiDay && recurrence !== 'none' && (
+      {/* Repeat Until — visible whenever a repeat option is selected */}
+      {recurrence !== 'none' && (
         <Field label="Repeat Until *">
           <input
             style={inputStyle} type="date"
             value={recurUntil} min={date}
             onChange={e => setRecurUntil(e.target.value)}
           />
-          {recurringCount > 0 && (
+          {recurringCount > 0 && !isEditing && (
             <div style={{ marginTop:6, fontSize:12, color:'#4f46e5', fontWeight:600 }}>
               This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
             </div>
@@ -156,7 +155,6 @@ export default function EventForm({ event, participants, groups, onSave, onClose
           )}
         </Field>
       )}
-
       {/* Event Type */}
       <Field label="Event Type">
         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
