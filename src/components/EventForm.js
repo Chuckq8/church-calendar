@@ -13,12 +13,25 @@ const RECUR_OPTIONS = [
   { value: 'yearly',   label: 'Every year (same date)' },
 ];
 
-function generateRecurringDates(startDate, recurrence, untilDate) {
-  if (!startDate || !untilDate || recurrence === 'none') return [startDate];
+function generateRecurringDates(startDate, recurrence, untilDate, noEndDate) {
+  if (!startDate || recurrence === 'none') return [startDate];
+
+  // If no end date, auto-generate up to 10 years from start
+  let endDateStr = untilDate;
+  if (noEndDate) {
+    const start = new Date(startDate + 'T00:00:00');
+    const autoEnd = new Date(start);
+    autoEnd.setFullYear(autoEnd.getFullYear() + 10);
+    endDateStr = autoEnd.getFullYear() + '-' + String(autoEnd.getMonth()+1).padStart(2,'0') + '-' + String(autoEnd.getDate()).padStart(2,'0');
+  }
+
+  if (!endDateStr) return [startDate];
+
   const dates = [];
   const cur = new Date(startDate + 'T00:00:00');
-  const end = new Date(untilDate + 'T00:00:00');
+  const end = new Date(endDateStr + 'T00:00:00');
   if (cur > end) return [startDate];
+
   while (cur <= end) {
     const ds = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
     dates.push(ds);
@@ -42,15 +55,16 @@ export default function EventForm({ event, participants, groups, onSave, onClose
   const [selParticipants, setSP]    = useState(event?.participants || []);
   const [selGroups, setSG]          = useState(event?.groupIds || []);
   const [recurrence, setRecur]      = useState(event?.recurrence || 'none');
-  const [recurUntil, setRecurUntil] = useState(event?.recurUntil || '');
-
+   const [recurUntil, setRecurUntil] = useState(event?.recurUntil || '');
+  const [noEndDate, setNoEndDate]   = useState(event?.noEndDate || false);
+  
   const isEditing = !!event;
 
   const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
   const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
 
-  const recurringCount = !isEditing && recurrence !== 'none' && recurUntil && date
-    ? generateRecurringDates(date, recurrence, recurUntil).length
+    const recurringCount = !isEditing && recurrence !== 'none' && (recurUntil || noEndDate) && date
+    ? generateRecurringDates(date, recurrence, recurUntil, noEndDate).length
     : 0;
 
   const save = () => {
