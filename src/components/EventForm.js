@@ -176,16 +176,29 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       </Field>
 
       {/* Repeat Until — only shows when a repeat is selected */}
+           {/* Repeat Until — only shows when a repeat is selected */}
       {recurrence !== 'none' && (
         <Field label="Repeat Until">
 
-          {/* No end date toggle */}
-          <div style={{ marginBottom:10 }}>
-            <Toggle
-              on={noEndDate}
-              onToggle={() => { setNoEndDate(v => !v); setRecurUntil(''); }}
-              label="No end date (repeats for 10 years)"
-            />
+          {/* No end date toggle — inline, no separate component */}
+          <div
+            onClick={() => { setNoEndDate(v => !v); setRecurUntil(''); }}
+            style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, cursor:'pointer' }}
+          >
+            <div style={{
+              width:36, height:20, borderRadius:10, position:'relative',
+              background: noEndDate ? '#4f46e5' : '#e2e8f0', flexShrink:0,
+            }}>
+              <div style={{
+                width:16, height:16, borderRadius:'50%', background:'#fff',
+                position:'absolute', top:2,
+                left: noEndDate ? 18 : 2,
+                boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+              }}/>
+            </div>
+            <span style={{ fontSize:13, fontWeight:600, color: noEndDate ? '#4f46e5' : '#475569' }}>
+              No end date (repeats for 10 years)
+            </span>
           </div>
 
           {/* Date picker — hidden when no end date is on */}
