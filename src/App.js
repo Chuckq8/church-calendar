@@ -118,9 +118,9 @@ export default function App() {
       if (isFirstLoad.current && data.events.length === 0) {
         const base = [...DEFAULT_HOLIDAYS, ...generateSabbaths()];
         const initialData = {
-          events:         base,
-          participants:   DEFAULT_PARTICIPANTS,
-          groups:         DEFAULT_GROUPS,
+          events: base,
+          participants: DEFAULT_PARTICIPANTS,
+          groups: DEFAULT_GROUPS,
           shuffleHistory: [],
         };
         saveAll(initialData);
@@ -140,8 +140,8 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // ── Event CRUD ─────────────────────────────────────────────────────────────
   const addEvent = useCallback(ev => {
-    // Strip undefined values — Firestore rejects them
     const clean = JSON.parse(JSON.stringify(ev));
     setEvents(es => {
       const next = [...es, clean];
@@ -160,8 +160,9 @@ export default function App() {
   }, []);
 
   const editEvent = useCallback(ev => {
+    const clean = JSON.parse(JSON.stringify(ev));
     setEvents(es => {
-      const next = es.map(e => e.id === ev.id ? ev : e);
+      const next = es.map(e => e.id === clean.id ? clean : e);
       saveEvents(next);
       return next;
     });
@@ -175,6 +176,19 @@ export default function App() {
     });
   }, []);
 
+  const deleteSeries = useCallback(title => {
+    const titleToMatch = (title || '').replace(' (copy)', '').trim().toLowerCase();
+    setEvents(es => {
+      const next = es.filter(e => {
+        const eTitle = (e.title || '').replace(' (copy)', '').trim().toLowerCase();
+        return eTitle !== titleToMatch;
+      });
+      saveEvents(next);
+      return next;
+    });
+  }, []);
+
+  // ── Participant CRUD ───────────────────────────────────────────────────────
   const addParticipant = useCallback(p => {
     setParticipants(ps => {
       const next = [...ps, p];
@@ -209,6 +223,7 @@ export default function App() {
     });
   }, []);
 
+  // ── Group CRUD ─────────────────────────────────────────────────────────────
   const addGroup = useCallback(g => {
     setGroups(gs => {
       const next = [...gs, g];
@@ -238,6 +253,7 @@ export default function App() {
     });
   }, []);
 
+  // ── Shuffle ────────────────────────────────────────────────────────────────
   const doShuffle = useCallback(() => { setShowShuffleConfirm(true); }, []);
 
   const confirmShuffle = useCallback(() => {
@@ -307,31 +323,41 @@ export default function App() {
     showToast('Members reshuffled! Past events frozen.', 'success');
   }, [groups, events, participants, shuffleHistory, showToast]);
 
+  // ── Export ─────────────────────────────────────────────────────────────────
   const doExport = useCallback((format) => {
     let content, type, filename;
     if (format === 'csv') {
-      const rows = [['Title','Date','Time','Type','Description','Participants','Groups']];
+      const rows = [['Title', 'Date', 'Time', 'Type', 'Description', 'Participants', 'Groups']];
       events.forEach(e => {
-        const names = (e.participants || []).map(pid => { const p = participants.find(p => p.id === pid); return p ? p.name : ''; }).filter(Boolean).join('; ');
-        const grpNames = (e.groupIds || []).map(gid => { const g = groups.find(g => g.id === gid); return g ? g.name : ''; }).filter(Boolean).join('; ');
+        const names = (e.participants || []).map(pid => {
+          const p = participants.find(p => p.id === pid);
+          return p ? p.name : '';
+        }).filter(Boolean).join('; ');
+        const grpNames = (e.groupIds || []).map(gid => {
+          const g = groups.find(g => g.id === gid);
+          return g ? g.name : '';
+        }).filter(Boolean).join('; ');
         rows.push([e.title, e.date, e.time || '', EVENT_TYPES[e.type] ? EVENT_TYPES[e.type].label : e.type, e.description || '', names, grpNames]);
       });
       content = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
-      type = 'text/csv'; filename = 'church-calendar.csv';
+      type = 'text/csv';
+      filename = 'church-calendar.csv';
     } else {
       content = JSON.stringify({ events, participants, groups, shuffleHistory }, null, 2);
-      type = 'application/json'; filename = 'church-calendar.json';
+      type = 'application/json';
+      filename = 'church-calendar.json';
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([content], { type }));
-    a.download = filename; a.click();
+    a.download = filename;
+    a.click();
     showToast(format.toUpperCase() + ' exported!', 'success');
   }, [events, participants, groups, shuffleHistory, showToast]);
 
   const tabs = [
-    { id:'calendar',     label:'Calendar',  icon:Calendar },
-    { id:'participants', label:'Members',   icon:Users },
-    { id:'admin',        label:'Dashboard', icon:Settings },
+    { id: 'calendar',     label: 'Calendar',  icon: Calendar },
+    { id: 'participants', label: 'Members',   icon: Users },
+    { id: 'admin',        label: 'Dashboard', icon: Settings },
   ];
 
   if (!loaded) return (
@@ -360,7 +386,9 @@ export default function App() {
             {tabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
                 display:'flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:9, border:'none', cursor:'pointer',
-                fontSize:13, fontWeight:600, background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent', color:'#fff', transition:'background 0.15s',
+                fontSize:13, fontWeight:600,
+                background: tab === t.id ? 'rgba(255,255,255,0.22)' : 'transparent',
+                color:'#fff', transition:'background 0.15s',
               }}>
                 <t.icon size={15}/>
                 <span className="nav-label">{t.label}</span>
@@ -372,8 +400,10 @@ export default function App() {
               <div style={{ width:8, height:8, borderRadius:'50%', background:'#fbbf24', animation:'pulse 1s infinite' }} title="Syncing..."/>
             )}
             <button onClick={() => isAdmin ? setIsAdmin(false) : setShowLogin(true)} style={{
-              display:'flex', alignItems:'center', gap:5, padding:'7px 12px', border:'1.5px solid rgba(255,255,255,0.4)',
-              borderRadius:9, background:'transparent', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
+              display:'flex', alignItems:'center', gap:5, padding:'7px 12px',
+              border:'1.5px solid rgba(255,255,255,0.4)',
+              borderRadius:9, background:'transparent', color:'#fff',
+              cursor:'pointer', fontSize:12, fontWeight:700, flexShrink:0,
             }}>
               {isAdmin ? <><LogOut size={13}/> Exit Admin</> : <><LogIn size={13}/> Admin</>}
             </button>
@@ -393,25 +423,43 @@ export default function App() {
       <main style={{ maxWidth:1100, margin:'0 auto', padding:'24px 16px' }}>
         {tab === 'calendar' && (
           <CalendarView
-            events={events} participants={participants} groups={groups} isAdmin={isAdmin}
-            onAddEvent={addEvent} onAddEvents={addEvents} onEditEvent={editEvent} onDeleteEvent={deleteEvent}
+            events={events}
+            participants={participants}
+            groups={groups}
+            isAdmin={isAdmin}
+            onAddEvent={addEvent}
+            onAddEvents={addEvents}
+            onEditEvent={editEvent}
+            onDeleteEvent={deleteEvent}
+            onDeleteSeries={deleteSeries}
             showToast={showToast}
           />
         )}
         {tab === 'participants' && (
           <ParticipantsView
-            participants={participants} events={events} groups={groups} isAdmin={isAdmin}
-            onAdd={addParticipant} onEdit={editParticipant} onDelete={deleteParticipant}
-            onAddGroup={addGroup} onEditGroup={editGroup} onDeleteGroup={deleteGroup}
-            onShuffle={doShuffle} shuffleHistory={shuffleHistory}
+            participants={participants}
+            events={events}
+            groups={groups}
+            isAdmin={isAdmin}
+            onAdd={addParticipant}
+            onEdit={editParticipant}
+            onDelete={deleteParticipant}
+            onAddGroup={addGroup}
+            onEditGroup={editGroup}
+            onDeleteGroup={deleteGroup}
+            onShuffle={doShuffle}
+            shuffleHistory={shuffleHistory}
             onClearHistory={() => { setShuffleHistory([]); saveShuffleHistory([]); }}
             showToast={showToast}
           />
         )}
         {tab === 'admin' && (
           <AdminDashboard
-            events={events} participants={participants} groups={groups}
-            shuffleHistory={shuffleHistory} onExport={doExport}
+            events={events}
+            participants={participants}
+            groups={groups}
+            shuffleHistory={shuffleHistory}
+            onExport={doExport}
           />
         )}
       </main>
