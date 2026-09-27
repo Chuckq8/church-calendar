@@ -49,6 +49,10 @@ export default function EventForm({ event, participants, groups, onSave, onClose
   const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
   const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
 
+  const recurringCount = !isEditing && recurrence !== 'none' && recurUntil && date
+    ? generateRecurringDates(date, recurrence, recurUntil).length
+    : 0;
+
   const save = () => {
     if (!title.trim() || !date) return;
 
@@ -66,26 +70,18 @@ export default function EventForm({ event, participants, groups, onSave, onClose
     };
 
     if (!isEditing && recurrence !== 'none' && recurUntil) {
-      // New recurring event — generate multiple
       const dates = generateRecurringDates(date, recurrence, recurUntil);
-      const recurringEvents = dates.map(d => ({
-        ...baseEvent,
-        id: uid(),
-        date: d,
-      }));
+      const recurringEvents = dates.map(d => ({ ...baseEvent, id: uid(), date: d }));
       onSave(recurringEvents);
     } else {
-      // Single event or editing existing
       onSave({ ...baseEvent, id: event?.id || uid() });
     }
   };
 
-  const recurringCount = !isEditing && recurrence !== 'none' && recurUntil && date
-    ? generateRecurringDates(date, recurrence, recurUntil).length
-    : 0;
-
   return (
     <div>
+
+      {/* Title */}
       <Field label="Event Title *">
         <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="Event title"/>
       </Field>
@@ -122,7 +118,7 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-            {/* Repeat dropdown — always visible */}
+      {/* Repeat dropdown — ALWAYS visible */}
       <Field label="Repeat">
         <select
           style={{ ...inputStyle, cursor:'pointer' }}
@@ -135,26 +131,37 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </select>
       </Field>
 
-      {/* Repeat Until — visible whenever a repeat option is selected */}
-      {recurrence !== 'none' && (
-        <Field label="Repeat Until *">
-          <input
-            style={inputStyle} type="date"
-            value={recurUntil} min={date}
-            onChange={e => setRecurUntil(e.target.value)}
-          />
-          {recurringCount > 0 && !isEditing && (
-            <div style={{ marginTop:6, fontSize:12, color:'#4f46e5', fontWeight:600 }}>
-              This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
-            </div>
-          )}
-          {isEditing && (
-            <div style={{ marginTop:6, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
-              ⚠️ Editing only updates this single event. To create new recurring events, add a new event instead.
-            </div>
-          )}
-        </Field>
-      )}
+      {/* Repeat Until — ALWAYS visible, just disabled when no repeat selected */}
+      <Field label="Repeat Until">
+        <input
+          type="date"
+          value={recurUntil}
+          min={date}
+          disabled={recurrence === 'none'}
+          onChange={e => setRecurUntil(e.target.value)}
+          style={{
+            ...inputStyle,
+            opacity: recurrence === 'none' ? 0.4 : 1,
+            cursor: recurrence === 'none' ? 'not-allowed' : 'pointer',
+          }}
+        />
+        {recurrence === 'none' && (
+          <div style={{ marginTop:4, fontSize:11, color:'#94a3b8' }}>
+            Select a repeat option above to enable
+          </div>
+        )}
+        {recurringCount > 0 && !isEditing && (
+          <div style={{ marginTop:6, fontSize:12, color:'#4f46e5', fontWeight:600 }}>
+            This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
+          </div>
+        )}
+        {isEditing && recurrence !== 'none' && (
+          <div style={{ marginTop:6, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
+            ⚠️ This only updates this single event
+          </div>
+        )}
+      </Field>
+
       {/* Event Type */}
       <Field label="Event Type">
         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
@@ -189,4 +196,49 @@ export default function EventForm({ event, participants, groups, onSave, onClose
                 fontSize:12, fontWeight:700, cursor:'pointer',
               }}>
                 👥 {g.name}
-                {selGroups.includes(g.id) && <span style={{
+                {selGroups.includes(g.id) && <span style={{ fontSize:10 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {/* Assign Individual Members */}
+      {participants && participants.length > 0 && (
+        <Field label="Assign Individual Members">
+          <div style={{ border:'1.5px solid #e2e8f0', borderRadius:10, maxHeight:180, overflowY:'auto' }}>
+            {participants.map(p => (
+              <div key={p.id} onClick={() => toggleP(p.id)} style={{
+                display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
+                cursor:'pointer', borderBottom:'1px solid #f8fafc',
+                background: selParticipants.includes(p.id) ? '#eff0ff' : '#fff',
+              }}>
+                <div style={{
+                  width:16, height:16, borderRadius:3, border:'2px solid',
+                  borderColor: selParticipants.includes(p.id) ? '#4f46e5' : '#cbd5e1',
+                  background: selParticipants.includes(p.id) ? '#4f46e5' : '#fff',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                }}>
+                  {selParticipants.includes(p.id) && <span style={{ color:'#fff', fontSize:10, fontWeight:800 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{p.name}</div>
+                  {p.role && <div style={{ fontSize:11, color:'#94a3b8' }}>{p.role}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {/* Buttons */}
+      <div style={{ display:'flex', gap:8, marginTop:8 }}>
+        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
+        <Btn variant="primary" onClick={save} style={{ flex:1, justifyContent:'center' }}>
+          {isEditing ? 'Save Changes' : (recurringCount > 1 ? 'Add ' + recurringCount + ' Events' : 'Add Event')}
+        </Btn>
+      </div>
+
+    </div>
+  );
+}
