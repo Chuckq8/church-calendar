@@ -3,36 +3,39 @@
 import { EVENT_TYPES } from '../constants';
 import { Btn } from './UI';
 
-export default function EventDetail({ event, participants, groups, isAdmin, onEdit, onDelete, onCopy, onClose }) {
+export default function EventDetail({ event, participants, groups, isAdmin, onEdit, onDelete, onDeleteAll, onCopy, onClose }) {
   const typeInfo = EVENT_TYPES[event.type] || EVENT_TYPES.event;
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const isPast = event.date < todayStr;
+  const isSeries = !!(event.recurrence || event.noEndDate);
 
-  // Individual participants (directly stored)
   const directMembers = (event.participants || [])
-    .map(function(pid) { return participants.find(function(p) { return p.id === pid; }); })
+    .map(pid => participants.find(p => p.id === pid))
     .filter(Boolean);
 
-  // Live group participants (future events only)
   const assignedGroups = (event.groupIds || [])
-    .map(function(gid) { return groups && groups.find(function(g) { return g.id === gid; }); })
+    .map(gid => groups && groups.find(g => g.id === gid))
     .filter(Boolean);
 
-  const groupMemberIds = assignedGroups.flatMap(function(g) { return g.memberIds || []; });
+  const groupMemberIds = assignedGroups.flatMap(g => g.memberIds || []);
   const allMemberIds = [...new Set([...(event.participants || []), ...groupMemberIds])];
   const allMembers = allMemberIds
-    .map(function(id) { return participants.find(function(p) { return p.id === id; }); })
+    .map(id => participants.find(p => p.id === id))
     .filter(Boolean);
 
   return (
     <div>
       {/* Type badge + date */}
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-        <span style={{ fontSize:12, fontWeight:700, borderRadius:20, padding:'3px 12px', background:typeInfo.bg, color:typeInfo.color, border:'1px solid ' + typeInfo.border }}>
+        <span style={{
+          fontSize:12, fontWeight:700, borderRadius:20, padding:'3px 12px',
+          background: typeInfo.bg, color: typeInfo.color,
+          border: '1px solid ' + typeInfo.border
+        }}>
           {typeInfo.label}
         </span>
-       <span style={{ fontSize:13, color:'#64748b' }}>
+        <span style={{ fontSize:13, color:'#64748b' }}>
           📅 {event.date}
           {event.endDate && event.endDate !== event.date ? ' → ' + event.endDate : ''}
           {event.time ? ' · ' + event.time : ''}
@@ -42,52 +45,55 @@ export default function EventDetail({ event, participants, groups, isAdmin, onEd
             ✅ Completed
           </span>
         )}
+        {isSeries && (
+          <span style={{ fontSize:11, fontWeight:700, background:'#eff0ff', color:'#4f46e5', borderRadius:20, padding:'2px 10px', border:'1px solid #c7d2fe' }}>
+            🔁 Recurring
+          </span>
+        )}
       </div>
 
       {event.description && (
         <p style={{ fontSize:14, color:'#475569', marginBottom:16, lineHeight:1.6 }}>{event.description}</p>
       )}
 
-      {/* Assigned Groups (future events) */}
+      {/* Assigned Groups */}
       {assignedGroups.length > 0 && (
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', marginBottom:8 }}>ASSIGNED GROUPS</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-            {assignedGroups.map(function(g) {
-              return (
-                <div key={g.id} style={{ display:'flex', alignItems:'center', gap:6, background:'#eff0ff', borderRadius:20, padding:'4px 12px', border:'1px solid #c7d2fe' }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:'#4f46e5' }}>👥 {g.name}</span>
-                  <span style={{ fontSize:11, color:'#6366f1' }}>({(g.memberIds || []).length} members)</span>
-                </div>
-              );
-            })}
+            {assignedGroups.map(g => (
+              <div key={g.id} style={{ display:'flex', alignItems:'center', gap:6, background:'#eff0ff', borderRadius:20, padding:'4px 12px', border:'1px solid #c7d2fe' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:'#4f46e5' }}>👥 {g.name}</span>
+                <span style={{ fontSize:11, color:'#6366f1' }}>({(g.memberIds || []).length})</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Frozen notice for past events */}
+      {/* Frozen notice */}
       {isPast && directMembers.length > 0 && (
         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:'7px 12px', marginBottom:12, fontSize:12, color:'#64748b', display:'flex', alignItems:'center', gap:6 }}>
           🔒 Participant list is frozen — this event has already passed
         </div>
       )}
 
-      {/* All participants */}
+      {/* Participants */}
       {allMembers.length > 0 && (
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:'0.05em', marginBottom:8 }}>
             PARTICIPANTS ({allMembers.length})
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            {allMembers.map(function(p) {
+            {allMembers.map(p => {
               const viaGroup = groupMemberIds.includes(p.id) && !(event.participants || []).includes(p.id);
               const groupNames = assignedGroups
-                .filter(function(g) { return (g.memberIds || []).includes(p.id); })
-                .map(function(g) { return g.name; });
+                .filter(g => (g.memberIds || []).includes(p.id))
+                .map(g => g.name);
               return (
                 <div key={p.id} style={{ display:'flex', alignItems:'center', gap:10, background:'#f8fafc', borderRadius:10, padding:'8px 12px' }}>
                   <div style={{ width:32, height:32, borderRadius:'50%', background:'#4f46e5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#fff', flexShrink:0 }}>
-                    {p.name.split(' ').map(function(w) { return w[0]; }).slice(0,2).join('')}
+                    {p.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{p.name}</div>
@@ -106,17 +112,45 @@ export default function EventDetail({ event, participants, groups, isAdmin, onEd
       )}
 
       {allMembers.length === 0 && assignedGroups.length === 0 && (
-        <div style={{ color:'#94a3b8', fontSize:13, textAlign:'center', padding:'16px 0' }}>No participants assigned yet</div>
+        <div style={{ color:'#94a3b8', fontSize:13, textAlign:'center', padding:'16px 0' }}>
+          No participants assigned yet
+        </div>
       )}
 
-     <div style={{ display:'flex', gap:8, marginTop:20, paddingTop:16, borderTop:'1px solid #f1f5f9', flexWrap:'wrap' }}>
-        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Close</Btn>
-        {isAdmin && <>
-          <Btn variant="ghost" onClick={onCopy} style={{ flex:1, justifyContent:'center', color:'#059669' }}>📋 Copy</Btn>
-          <Btn variant="ghost" onClick={onEdit} style={{ flex:1, justifyContent:'center', color:'#4f46e5' }}>✏️ Edit</Btn>
-          <Btn variant="ghost" onClick={onDelete} style={{ flex:1, justifyContent:'center', color:'#dc2626' }}>🗑 Delete</Btn>
-        </>}
-      </div>
+      {/* Buttons */}
+      {isAdmin ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:20, paddingTop:16, borderTop:'1px solid #f1f5f9' }}>
+          {/* Top row */}
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Close</Btn>
+            <Btn variant="ghost" onClick={onCopy} style={{ flex:1, justifyContent:'center', color:'#059669' }}>📋 Copy</Btn>
+            <Btn variant="ghost" onClick={onEdit} style={{ flex:1, justifyContent:'center', color:'#4f46e5' }}>✏️ Edit</Btn>
+          </div>
+          {/* Delete row */}
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn
+              variant="ghost"
+              onClick={onDelete}
+              style={{ flex:1, justifyContent:'center', color:'#dc2626', border:'1.5px solid #fecaca' }}
+            >
+              🗑 Delete This
+            </Btn>
+            {isSeries && (
+              <Btn
+                variant="ghost"
+                onClick={onDeleteAll}
+                style={{ flex:1, justifyContent:'center', color:'#fff', background:'#dc2626', border:'none', fontWeight:800 }}
+              >
+                🗑 Delete All
+              </Btn>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #f1f5f9' }}>
+          <Btn variant="ghost" onClick={onClose} style={{ width:'100%', justifyContent:'center' }}>Close</Btn>
+        </div>
+      )}
     </div>
   );
 }
