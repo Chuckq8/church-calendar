@@ -6,11 +6,11 @@ import { uid } from '../utils';
 import { Field, inputStyle, Btn } from './UI';
 
 const RECUR_OPTIONS = [
-  { value: 'none',    label: 'Does not repeat' },
-  { value: 'weekly',  label: 'Every week (same day)' },
-  { value: 'biweekly',label: 'Every 2 weeks' },
-  { value: 'monthly', label: 'Every month (same date)' },
-  { value: 'yearly',  label: 'Every year (same date)' },
+  { value: 'none',     label: 'Does not repeat' },
+  { value: 'weekly',   label: 'Every week (same day)' },
+  { value: 'biweekly', label: 'Every 2 weeks' },
+  { value: 'monthly',  label: 'Every month (same date)' },
+  { value: 'yearly',   label: 'Every year (same date)' },
 ];
 
 function generateRecurringDates(startDate, recurrence, untilDate) {
@@ -32,17 +32,19 @@ function generateRecurringDates(startDate, recurrence, untilDate) {
 }
 
 export default function EventForm({ event, participants, groups, onSave, onClose }) {
-  const [title, setTitle]         = useState(event?.title || '');
-  const [date, setDate]           = useState(event?.date || '');
-  const [endDate, setEndDate]     = useState(event?.endDate || '');
-  const [isMultiDay, setMultiDay] = useState(!!(event?.endDate));
-  const [time, setTime]           = useState(event?.time || '');
-  const [type, setType]           = useState(event?.type || 'event');
-  const [desc, setDesc]           = useState(event?.description || '');
-  const [selParticipants, setSP]  = useState(event?.participants || []);
-  const [selGroups, setSG]        = useState(event?.groupIds || []);
-  const [recurrence, setRecur]    = useState('none');
-  const [recurUntil, setRecurUntil] = useState('');
+  const [title, setTitle]           = useState(event?.title || '');
+  const [date, setDate]             = useState(event?.date || '');
+  const [endDate, setEndDate]       = useState(event?.endDate || '');
+  const [isMultiDay, setMultiDay]   = useState(!!(event?.endDate));
+  const [time, setTime]             = useState(event?.time || '');
+  const [type, setType]             = useState(event?.type || 'event');
+  const [desc, setDesc]             = useState(event?.description || '');
+  const [selParticipants, setSP]    = useState(event?.participants || []);
+  const [selGroups, setSG]          = useState(event?.groupIds || []);
+  const [recurrence, setRecur]      = useState(event?.recurrence || 'none');
+  const [recurUntil, setRecurUntil] = useState(event?.recurUntil || '');
+
+  const isEditing = !!event;
 
   const toggleP = id => setSP(ps => ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]);
   const toggleG = id => setSG(gs => gs.includes(id) ? gs.filter(x => x !== id) : [...gs, id]);
@@ -63,7 +65,8 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       recurUntil: (recurrence !== 'none' && recurUntil) ? recurUntil : null,
     };
 
-    if (recurrence !== 'none' && recurUntil && !event) {
+    if (!isEditing && recurrence !== 'none' && recurUntil) {
+      // New recurring event — generate multiple
       const dates = generateRecurringDates(date, recurrence, recurUntil);
       const recurringEvents = dates.map(d => ({
         ...baseEvent,
@@ -72,11 +75,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       }));
       onSave(recurringEvents);
     } else {
+      // Single event or editing existing
       onSave({ ...baseEvent, id: event?.id || uid() });
     }
   };
 
-  const recurringCount = recurrence !== 'none' && recurUntil && date
+  const recurringCount = !isEditing && recurrence !== 'none' && recurUntil && date
     ? generateRecurringDates(date, recurrence, recurUntil).length
     : 0;
 
@@ -87,17 +91,16 @@ export default function EventForm({ event, participants, groups, onSave, onClose
       </Field>
 
       {/* Multi-day toggle */}
-      {!event && (
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
-          <button onClick={() => setMultiDay(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', padding:0 }}>
-            <div style={{ width:36, height:20, borderRadius:10, position:'relative', transition:'background 0.2s', background: isMultiDay ? '#4f46e5' : '#e2e8f0' }}>
-              <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:2, transition:'left 0.2s', left: isMultiDay ? 18 : 2, boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
-            </div>
-            <span style={{ fontSize:13, fontWeight:600, color:'#475569' }}>Multi-day event</span>
-          </button>
-        </div>
-      )}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+        <button onClick={() => setMultiDay(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <div style={{ width:36, height:20, borderRadius:10, position:'relative', transition:'background 0.2s', background: isMultiDay ? '#4f46e5' : '#e2e8f0' }}>
+            <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:2, transition:'left 0.2s', left: isMultiDay ? 18 : 2, boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
+          </div>
+          <span style={{ fontSize:13, fontWeight:600, color:'#475569' }}>Multi-day event</span>
+        </button>
+      </div>
 
+      {/* Date fields */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
         <Field label={isMultiDay ? 'Start Date *' : 'Date *'}>
           <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)}/>
@@ -119,8 +122,8 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-      {/* Recurring — only for new single-day events */}
-      {!event && !isMultiDay && (
+      {/* Recurring — shown for both new and edit, but generating multiple only works for new */}
+      {!isMultiDay && (
         <Field label="Repeat">
           <select
             style={{ ...inputStyle, cursor:'pointer' }}
@@ -134,7 +137,7 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </Field>
       )}
 
-      {!event && !isMultiDay && recurrence !== 'none' && (
+      {!isMultiDay && recurrence !== 'none' && (
         <Field label="Repeat Until *">
           <input
             style={inputStyle} type="date"
@@ -146,9 +149,15 @@ export default function EventForm({ event, participants, groups, onSave, onClose
               This will create {recurringCount} event{recurringCount !== 1 ? 's' : ''}
             </div>
           )}
+          {isEditing && (
+            <div style={{ marginTop:6, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
+              ⚠️ Editing only updates this single event. To create new recurring events, add a new event instead.
+            </div>
+          )}
         </Field>
       )}
 
+      {/* Event Type */}
       <Field label="Event Type">
         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
           {Object.entries(EVENT_TYPES).map(([k, v]) => (
@@ -163,10 +172,12 @@ export default function EventForm({ event, participants, groups, onSave, onClose
         </div>
       </Field>
 
+      {/* Description */}
       <Field label="Description">
         <textarea style={{ ...inputStyle, height:72, resize:'vertical' }} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional notes…"/>
       </Field>
 
+      {/* Assign Groups */}
       {groups && groups.length > 0 && (
         <Field label="Assign Groups">
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
@@ -180,46 +191,4 @@ export default function EventForm({ event, participants, groups, onSave, onClose
                 fontSize:12, fontWeight:700, cursor:'pointer',
               }}>
                 👥 {g.name}
-                {selGroups.includes(g.id) && <span style={{ fontSize:10 }}>✓</span>}
-              </button>
-            ))}
-          </div>
-        </Field>
-      )}
-
-      {participants && participants.length > 0 && (
-        <Field label="Assign Individual Members">
-          <div style={{ border:'1.5px solid #e2e8f0', borderRadius:10, maxHeight:180, overflowY:'auto' }}>
-            {participants.map(p => (
-              <div key={p.id} onClick={() => toggleP(p.id)} style={{
-                display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
-                cursor:'pointer', borderBottom:'1px solid #f8fafc',
-                background: selParticipants.includes(p.id) ? '#eff0ff' : '#fff',
-              }}>
-                <div style={{
-                  width:16, height:16, borderRadius:3, border:'2px solid',
-                  borderColor: selParticipants.includes(p.id) ? '#4f46e5' : '#cbd5e1',
-                  background: selParticipants.includes(p.id) ? '#4f46e5' : '#fff',
-                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                }}>
-                  {selParticipants.includes(p.id) && <span style={{ color:'#fff', fontSize:10, fontWeight:800 }}>✓</span>}
-                </div>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:600, color:'#1e293b' }}>{p.name}</div>
-                  {p.role && <div style={{ fontSize:11, color:'#94a3b8' }}>{p.role}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Field>
-      )}
-
-      <div style={{ display:'flex', gap:8, marginTop:8 }}>
-        <Btn variant="ghost" onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancel</Btn>
-        <Btn variant="primary" onClick={save} style={{ flex:1, justifyContent:'center' }}>
-          {event ? 'Save Changes' : (recurringCount > 1 ? `Add ${recurringCount} Events` : 'Add Event')}
-        </Btn>
-      </div>
-    </div>
-  );
-}
+                {selGroups.includes(g.id) && <span style={{
