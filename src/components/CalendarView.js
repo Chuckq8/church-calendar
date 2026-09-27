@@ -171,7 +171,7 @@ export default function CalendarView({ events, participants, groups, isAdmin, on
 
                 {/* Events — show max 2 on mobile */}
                 {dayEvents.slice(0, 2).map(ev => {
-                  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.event;
+                  const t = EVENT_TYPES[ev.type] || EVENT_TYPES.special || EVENT_TYPES.event;
                   const isStart = !ev._isMultiDay || ev._dayIndex === 0;
                   return (
                     <div
